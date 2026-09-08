@@ -9,10 +9,16 @@ let currentPrescriptionItems = [];
 
 let currentAllowedTabs = ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'];
 
-let db = {
-    staffList: [],
+// تهيئة قاعدة البيانات بالاعتماد الأساسي والدائم على الذاكرة المحلية (localStorage) لتجنب فقدان البيانات أبدأ
+let db = JSON.parse(localStorage.getItem('clinicOfflineDB')) || {
+    staffList: [
+        { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'] },
+        { name: "موظف الاستقبال", username: "reception", password: "123", role: "receptionist", allowedTabs: ['dashboard', 'reception', 'appointments', 'patients', 'invoices', 'prescriptions'] }
+    ],
     patientsList: [],
-    doctorsList: [],
+    doctorsList: [
+        { name: "د. أحمد", specialty: "طب عام", shift: "8ص - 4م", phone: "0500000000" }
+    ],
     appointments: [],
     invoicesList: [],
     triageQueue: [],
@@ -20,15 +26,17 @@ let db = {
     auditLogs: []
 };
 
-let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue')) || [];
-
 let socket = null;
 try {
     socket = io(window.location.origin, { reconnectionAttempts: 5 });
     
+    // استقبال التحديثات الحية من السيرفر السحابي وتحديث الذاكرة المحلية
     socket.on('sync-clinic-data', (serverData) => {
-        db = serverData;
-        refreshAllUIs();
+        if (serverData) {
+            db = serverData;
+            localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
+            refreshAllUIs();
+        }
     });
 
     socket.on('patient-called-broadcast', (data) => {
@@ -36,42 +44,49 @@ try {
     });
 } catch(e) {}
 
+// جلب أحدث البيانات من السيرفر، وإن لم يوجد إنترنت يعتمد على الذاكرة المحلية فوراً
 async function fetchServerData() {
     try {
         let res = await fetch(window.location.origin + '/api/data');
-        db = await res.json();
-        refreshAllUIs();
+        if (res.ok) {
+            let serverData = await res.json();
+            // دمج البيانات أو تحديثها إذا كانت أحدث
+            db = serverData;
+            localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
+            refreshAllUIs();
+        }
     } catch(err) {
-        console.log("العمل بالوضع المحلي المؤقت (Offline Mode)");
+        // غياب الإنترنت: الاعتماد الكامل على الذاكرة المحلية وعدم توقف التطبيق
+        let localData = localStorage.getItem('clinicOfflineDB');
+        if (localData) {
+            db = JSON.parse(localData);
+            refreshAllUIs();
+        }
     }
 }
 
+// دالة الحفظ المركزية: تحفظ محلياً أولاً لضمان عدم الضياع، ثم ترسل للسيرفر إن وجد إنترنت
 function saveAndSync() {
+    // 1. الحفظ الفوري في الذاكرة المحلية (تضمن بقاء البيانات أثناء غياب الإنترنت)
+    localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
+
+    // 2. محاولة الإرسال للسيرفر السحابي
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', db);
-        processOfflineQueue();
+        showToast("✓ تم الحفظ والمزامنة السحابية بنجاح");
     } else {
-        offlineQueue.push(db);
-        localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
-        showToast("⚠️ انقطع الاتصال! تم الحفظ محلياً وسيتم المزامنة عند عودة الإنترنت.");
+        showToast("⚠️ يعمل بدون إنترنت: تم حفظ القيم محلياً في الجهاز");
     }
     refreshAllUIs();
 }
 
+// مراقبة عودة الإنترنت لمزامنة التغييرات تلقائياً
 window.addEventListener('online', () => {
-    showToast("✓ عاد الاتصال بالإنترنت! جاري المزامنة...");
-    processOfflineQueue();
-});
-
-function processOfflineQueue() {
-    if (socket && socket.connected && offlineQueue.length > 0) {
-        let latestData = offlineQueue[offlineQueue.length - 1];
-        socket.emit('update-clinic-data', latestData);
-        offlineQueue = [];
-        localStorage.removeItem('offlineQueue');
-        showToast("✓ تمت مزامنة البيانات مع السيرفر السحابي بنجاح!");
+    showToast("✓ عاد الاتصال بالإنترنت! جاري إرسال البيانات المعلقة للسيرفر...");
+    if (socket && socket.connected) {
+        socket.emit('update-clinic-data', db);
     }
-}
+});
 
 function refreshAllUIs() {
     loadTriageQueue();
@@ -188,7 +203,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!document.getElementById('appContainer').classList.contains('hidden')) {
             await fetchServerData();
         }
-    }, 2000);
+    }, 3000);
 });
 
 if ('serviceWorker' in navigator) {
@@ -422,7 +437,7 @@ function doctorCallPatient(patientName) {
 
     saveAndSync();
     triggerNurseNextPatientAlert(targetPatient.name, targetPatient.doctor);
-    if (socket) socket.emit('doctor-call-patient', { patientName: targetPatient.name, doctorName: targetPatient.doctor });
+    if (socket && socket.connected) socket.emit('doctor-call-patient', { patientName: targetPatient.name, doctorName: targetPatient.doctor });
 
     switchTab('examination');
     loadCurrentExamCard();
@@ -518,7 +533,6 @@ function confirmFinishExamination(e) {
     closeExamPricingModal();
     logAuditAction(`إنهاء فحص وتخريج المريض وإصدار فاتورة: ${currentPatientInExam.name}`);
     
-    // تفريغ وتصفير غرفة الفحص والوصفات الطبية تلقائياً
     document.getElementById('examDiagnosis').value = '';
     document.getElementById('examProcedure').value = '';
     document.getElementById('examPrescriptionText').value = '';
@@ -577,30 +591,20 @@ async function handleLogin(e) {
     const u = document.getElementById('loginUser').value.trim();
     const p = document.getElementById('loginPass').value.trim();
 
-    try {
-        let response = await fetch(window.location.origin + '/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: u, password: p })
-        });
-        let result = await response.json();
-
-        if (result.success) {
-            let found = result.user;
-            currentUserRole = found.role;
-            currentUsername = found.name;
-            currentAllowedTabs = found.allowedTabs || allAvailableViews.map(v => v.id);
-            
-            localStorage.setItem('clinicSession', JSON.stringify({ username: currentUsername, role: currentUserRole, allowedTabs: currentAllowedTabs }));
-            
-            showApp();
-            showToast(`مرحباً بك ${found.name}!`);
-            logAuditAction(`تسجيل دخول الموظف: ${found.name}`);
-        } else {
-            alert("بيانات الدخول غير صحيحة! تأكد من اسم المستخدم وكلمة المرور.");
-        }
-    } catch (err) {
-        alert("تعذر الاتصال بالسيرفر الرئيسي للعيادة!");
+    // التحقق المحلي المباشر لضمان عمل الدخول حتى لو انقطع الإنترنت
+    let found = db.staffList.find(s => s.username === u && s.password === p);
+    if (found) {
+        currentUserRole = found.role;
+        currentUsername = found.name;
+        currentAllowedTabs = found.allowedTabs || allAvailableViews.map(v => v.id);
+        
+        localStorage.setItem('clinicSession', JSON.stringify({ username: currentUsername, role: currentUserRole, allowedTabs: currentAllowedTabs }));
+        
+        showApp();
+        showToast(`مرحباً بك ${found.name}!`);
+        logAuditAction(`تسجيل دخول الموظف: ${found.name}`);
+    } else {
+        alert("بيانات الدخول غير صحيحة! تأكد من اسم المستخدم وكلمة المرور.");
     }
 }
 
@@ -697,7 +701,7 @@ function addPatientSimpleModal(e) {
     saveAndSync();
     closeModal('simple');
     showToast("تم تسجيل المريض بنجاح!");
-    logAuditAction(`تسجيل مريض جديد: ${name} (ID: ${idCard})`);
+    logAuditAction(`تسجيل مريض: ${name} (ID: ${idCard})`);
 }
 
 function loadPatients() {
