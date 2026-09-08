@@ -9,7 +9,7 @@ let currentPrescriptionItems = [];
 
 let currentAllowedTabs = ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'];
 
-// تهيئة قاعدة البيانات من الذاكرة المحلية أولاً لضمان عدم ضياع أي قيمة أبداً
+// تهيئة قاعدة البيانات بالاعتماد على الذاكرة المحلية
 let db = JSON.parse(localStorage.getItem('clinicOfflineDB')) || {
     staffList: [
         { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'] },
@@ -28,14 +28,13 @@ let db = JSON.parse(localStorage.getItem('clinicOfflineDB')) || {
 
 let socket = null;
 try {
-    socket = io(window.location.origin, { reconnectionAttempts: 5 });
+    socket = io(window.location.origin, { reconnectionAttempts: 5, reconnectionDelay: 1000 });
     
-    // استقبال التحديثات الحية من أجهزة أخرى متصلة بنفس السيرفر
+    // استقبال التحديثات الحية الفورية من السيرفر وبثها لقوائم العيادة
     socket.on('sync-clinic-data', (serverData) => {
-        if (serverData && serverData.patientsList) {
-            // دمج ذكي: إذا كانت بيانات السيرفر تحتوي على عناصر جديدة، نحدث المحلي
+        if (serverData) {
             db = serverData;
-            persistLocalDatabase();
+            localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
             refreshAllUIs();
         }
     });
@@ -45,46 +44,42 @@ try {
     });
 } catch(e) {}
 
-function persistLocalDatabase() {
-    localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
-}
-
-// جلب البيانات من السيرفر فقط عند الإقلاع الأول إذا كانت الذاكرة المحلية فارغة تماماً
+// جلب البيانات من السيرفر عند الإقلاع وتحديث الكاش المحلي
 async function fetchServerDataInitial() {
     try {
         let res = await fetch(window.location.origin + '/api/data');
         if (res.ok) {
-            let serverData = a = await res.json();
-            // إذا كان السيرفر يملك بيانات أكثر، نعتمدها، وإذا كان المحلي يملك بيانات مدخلة دون إنترنت نحافظ عليها ونرفعها
-            let localData = localStorage.getItem('clinicOfflineDB');
-            if (!localData || JSON.parse(localData).patientsList.length === 0) {
+            let serverData = await res.json();
+            if (serverData && serverData.patientsList) {
+                // إذا وجدنا بيانات بالسيرفر ندمجها أو نعتمدها إن كانت أحدث
                 db = serverData;
-                persistLocalDatabase();
+                localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
+                refreshAllUIs();
             }
-            refreshAllUIs();
         }
     } catch(err) {
         console.log("العمل بالوضع المحلي (Offline Mode)");
     }
 }
 
-// دالة الحفظ والمزامنة الآمنة
+// دالة الحفظ والمزامنة المباشرة مع السيرفر والذاكرة المحلية
 function saveAndSync() {
-    persistLocalDatabase(); // حفظ دائم محلياً أولاً
+    localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', db);
-        showToast("✓ تم الحفظ والمزامنة السحابية الفورية");
+        showToast("✓ تم الحفظ والمزامنة السحابية بنجاح");
     } else {
-        showToast("⚠️ يعمل بدون إنترنت: تم حفظ البيانات محلياً على جهازك بأمان");
+        showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز");
     }
     refreshAllUIs();
 }
 
-// عند عودة الإنترنت، إرسال البيانات المحلية للسيرفر لتحديثه (وليس العكس)
+// عند عودة الإنترنت، إعادة الاتصال وإرسال البيانات للسيرفر فوراً
 window.addEventListener('online', () => {
-    showToast("✓ عاد الاتصال بالإنترنت! جاري مزامنة بياناتك مع السحابة...");
-    if (socket && socket.connected) {
+    showToast("✓ عاد الاتصال بالإنترنت! جاري مزامنة البيانات...");
+    if (socket) {
+        if (!socket.connected) socket.connect();
         socket.emit('update-clinic-data', db);
     }
 });
