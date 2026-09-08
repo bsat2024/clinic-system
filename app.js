@@ -5,19 +5,68 @@ let isSidebarCollapsed = false;
 let currentPatientInExam = JSON.parse(localStorage.getItem('currentPatientInExam')) || null;
 let currentUploadedFileBase64 = null;
 let currentUploadedFileName = "";
-let currentPatientInitFileBase64 = null;
-let currentPatientInitFileName = "";
 let currentPrescriptionItems = [];
 
 let currentAllowedTabs = ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'];
 
+// قاعدة البيانات الموضعية المزامنة
+let db = {
+    staffList: [],
+    patientsList: [],
+    doctorsList: [],
+    appointments: [],
+    invoicesList: [],
+    triageQueue: [],
+    prescriptionsList: [],
+    auditLogs: []
+};
+
 let socket = null;
 try {
-    socket = io(window.location.origin, { reconnectionAttempts: 1 });
+    socket = io(window.location.origin, { reconnectionAttempts: 5 });
+    
+    // استقبال التحديثات الفورية من السيرفر وبثها للواجهات
+    socket.on('sync-clinic-data', (serverData) => {
+        db = serverData;
+        refreshAllUIs();
+    });
+
     socket.on('patient-called-broadcast', (data) => {
         triggerNurseNextPatientAlert(data.patientName, data.doctorName);
     });
 } catch(e) {}
+
+// جلب البيانات المركزية من السيرفر عند الإقلاع
+async function fetchServerData() {
+    try {
+        let res = await fetch(window.location.origin + '/api/data');
+        db = await res.json();
+        refreshAllUIs();
+    } catch(err) {
+        console.log("التعذر في الاتصال بالسيرفر المركزي");
+    }
+}
+
+// دالة لحفظ وبث التحديثات للسيرفر ولكافة الأجهزة المتصلة
+function saveAndSync() {
+    if (socket && socket.connected) {
+        socket.emit('update-clinic-data', db);
+    }
+    refreshAllUIs();
+}
+
+function refreshAllUIs() {
+    loadTriageQueue();
+    loadPatients();
+    loadDoctors();
+    loadAppointments();
+    loadInvoices();
+    updateSidebarBadges();
+    renderAuditLogsTable();
+    if (document.getElementById('tab-dashboard') && !document.getElementById('tab-dashboard').classList.contains('hidden')) {
+        initDashboardCharts();
+    }
+}
 
 const translations = {
     ar: {
@@ -27,7 +76,6 @@ const translations = {
         lblUser: "اسم المستخدم",
         lblPass: "كلمة المرور",
         btnLogin: "دخول للنظام",
-        welcomeText: "أهلاً بك مجدداً",
         lblCardPatients: "المرضى اليوم",
         lblCardAppts: "المواعيد",
         lblCardRev: "الإيرادات",
@@ -35,24 +83,7 @@ const translations = {
         btnRec: "الاستقبال والتجهيز",
         btnExam: "غرفة الفحص",
         btnInv: "فاتورة جديدة",
-        lblUpcomingAppts: "المواعيد القادمة",
-        thPatName: "اسم المريض",
-        thDocName: "الطبيب المعالج",
-        thDateTime: "التاريخ والوقت",
-        thStatus: "الحالة",
-        thActions: "الإجراءات والتعديل",
-        thDob: "تاريخ الميلاد",
-        thPhone: "رقم الهاتف",
-        thSpec: "التخصص",
-        thShift: "الدوام",
-        thMeds: "الأدوية",
-        thDate: "التاريخ",
-        thInvNum: "رقم الفاتورة",
-        thService: "الخدمة",
-        thAmount: "المبلغ",
-        thPaymentStatus: "الدفع",
         recTitle: "مكتب الاستقبال، تسجيل المرضى وقياس العلامات الحيوية",
-        recSubtitle: "البحث برقم بطاقة التعريف، تسجيل المرضى الجدد، وقياس العلامات الحيوية",
         lblSelPatient: "اسم المريض الكامل",
         lblAssignDoc: "الطبيب المعالج",
         lblTension: "ضغط الدم",
@@ -60,29 +91,13 @@ const translations = {
         lblSugar: "نسبة السكري (g/L)",
         btnSubmitTriage: "تسجيل وإرسال المريض لقائمة انتظار الفحص",
         lblQueueTitle: "قائمة انتظار المرضى عند الطبيب",
-        thTurn: "الدور",
-        thAssignedDoc: "الطبيب الموجه إليه",
-        thVitals: "المؤشرات الحيوية",
-        thPatCategory: "صفة الزيارة",
         examTitle: "غرفة الفحص الإكلينيكي وصرف الوصفات",
-        lblDiagTitle: "التشخيص الطبي السريري (Diagnosis)",
-        lblProcTitle: "الإجراءات الطبية (Procedure)",
-        lblPrescTitle: "الوصفة الطبية الموصوفة",
         btnFinishText: "إنهاء الفحص وتخريج المريض",
-        lblPatCardInfo: "المريض قيد الفحص حالياً",
-        lblMedicalConditions: "المشاكل الصحية المزمنة",
-        lblEmergencyOption: "حالة طارئة / أولوية مستعجلة في الدور",
         apptsTabTitle: "إدارة جدول المواعيد",
-        btnNewAppt: "موعد جديد",
-        btnNewPat: "مريض جديد",
         patsTabTitle: "المرضى المسجلين بالنظام",
         docsTabTitle: "قائمة الأطباء والتخصصات",
-        prescTabTitle: "سجل الوصفات الطبية",
         invTabTitle: "الفواتير والتحصيل",
-        repTabTitle: "التقارير والإحصائيات الشاملة",
         titlePermissions: "صلاحيات المستخدمين وإدارة الحسابات وكلمات المرور",
-        btnNewStaff: "إنشاء حساب موظف جديد",
-        colUsersTable: "إدارة وتعديل حسابات المستخدمين",
         settingsTabTitle: "إعدادات النظام والعيادة",
         navDash: "لوحة القيادة",
         navRec: "الاستقبال والترياج",
@@ -98,13 +113,7 @@ const translations = {
         btnLogout: "تسجيل الخروج",
         optSelDocDefault: "-- اختر الطبيب المعالج --",
         clinicBrandName: "عيادات الأسرة",
-        clinicSubTitle: "Clinical System",
-        lblMedRecordHeader: "الملف الصحي التراكمي (الأشعة والتحاليل السابقة للمريض)",
-        lblMedRecordSub: "يعرض كافة الفحوصات والتقارير الطبية التي أحضرها المريض سابقاً",
-        btnAddNewRecordExam: "إدراج تحليل / أشعة جديدة",
-        lblPastLabs: "سجل التحاليل المخبرية السابقة",
-        lblPastImaging: "سجل الأشعة والتصوير السابقة",
-        modalTitleMedRecord: "إدراج فحص طبي"
+        clinicSubTitle: "Clinical System"
     },
     fr: {
         pageTitle: "Clinique Familiale | Système Médical",
@@ -113,66 +122,6 @@ const translations = {
         lblUser: "Nom d'utilisateur",
         lblPass: "Mot de passe",
         btnLogin: "Se connecter",
-        welcomeText: "Bienvenue à nouveau",
-        lblCardPatients: "Patients du jour",
-        lblCardAppts: "Rendez-vous",
-        lblCardRev: "Revenus",
-        lblCardSatisfaction: "Satisfaction",
-        btnRec: "Accueil & Triage",
-        btnExam: "Salle d'Examen",
-        btnPresc: "Ordonnance",
-        btnInv: "Nouvelle Facture",
-        lblUpcomingAppts: "Prochains Rendez-vous",
-        thPatName: "Nom du Patient",
-        thDocName: "Médecin Traitant",
-        thDateTime: "Date et Heure",
-        thStatus: "Statut",
-        thActions: "Actions & Édition",
-        thDob: "Date de Naissance",
-        thPhone: "Téléphone",
-        thSpec: "Spécialité",
-        thShift: "Horaires",
-        thMeds: "Médicaments",
-        thDate: "Date",
-        thInvNum: "N° Facture",
-        thService: "Service Détaillé",
-        thAmount: "Montant",
-        thPaymentStatus: "Paiement",
-        recTitle: "Accueil, Enregistrement des Patients & Constantes",
-        recSubtitle: "Recherche par carte d'identité, enregistrement et constantes",
-        lblSelPatient: "Nom du Patient",
-        lblAssignDoc: "Médecin Traitant",
-        lblTension: "Tension Artérielle",
-        lblWeight: "Poids (kg)",
-        lblSugar: "Glycémie (g/L)",
-        btnSubmitTriage: "Valider et envoyer en file d'attente",
-        lblQueueTitle: "File d'attente des patients",
-        thTurn: "Tour",
-        thAssignedDoc: "Médecin",
-        thVitals: "Signes Vitaux",
-        thPatCategory: "Catégorie",
-        examTitle: "Salle de Consultation & Ordonnances",
-        lblDiagTitle: "Diagnostic Clinique (Diagnosis)",
-        lblProcTitle: "Procédures et Examens (Procedure)",
-        lblPrescTitle: "Ordonnance Médicale Prescrite",
-        btnFinishText: "Clôturer la consultation et facturer",
-        lblPatCardInfo: "Patient en cours d'examen",
-        lblMedicalConditions: "Antécédents & Pathologies",
-        lblEmergencyOption: "Cas d'urgence / Priorité absolue",
-        apptsTabTitle: "Gestion du Calendrier des RDV",
-        btnNewAppt: "Nouveau RDV",
-        btnNewPat: "Nouveau Patient",
-        patsTabTitle: "Patients Enregistrés",
-        docsTabTitle: "Médecins & Spécialités",
-        prescTabTitle: "Registre des Ordonnances",
-        invTabTitle: "Factures & Paiements",
-        repTabTitle: "Rapports & Statistiques",
-        titlePermissions: "Permissions & Gestion des Comptes",
-        btnNewStaff: "Nouvel Utilisateur",
-        colPerms: "Interfaces Autorisées",
-        colUsers: "Liste des Utilisateurs",
-        colUsersTable: "Gestion et édition des comptes",
-        settingsTabTitle: "Paramètres du Système",
         navDash: "Tableau de Bord",
         navRec: "Accueil & Triage",
         navExam: "Salle d'Examen",
@@ -184,16 +133,7 @@ const translations = {
         navReps: "Rapports",
         navStaff: "Utilisateurs",
         navSettings: "Paramètres",
-        btnLogout: "Déconnexion",
-        optSelDocDefault: "-- Sélectionner le médecin --",
-        clinicBrandName: "Clinique Familiale",
-        clinicSubTitle: "Clinical System",
-        lblMedRecordHeader: "Dossier Médical (Analyses et Radiographies)",
-        lblMedRecordSub: "Affiche l'ensemble des examens et comptes-rendus apportés par le patient",
-        btnAddNewRecordExam: "Ajouter une Analyse / Radio",
-        lblPastLabs: "Analyses de Laboratoire",
-        lblPastImaging: "Radiographies & Imagerie",
-        modalTitleMedRecord: "Ajouter un Examen Médical"
+        btnLogout: "Déconnexion"
     }
 };
 
@@ -211,7 +151,8 @@ const allAvailableViews = [
     { id: 'settings', ar: 'إعدادات النظام', fr: 'Paramètres', icon: 'fa-gear text-lg' }
 ];
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+    await fetchServerData();
     applyLanguage();
     
     const savedSession = JSON.parse(localStorage.getItem('clinicSession'));
@@ -225,34 +166,28 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('appContainer').classList.add('hidden');
     }
     
-    setInterval(() => {
+    setInterval(async () => {
         if (!document.getElementById('appContainer').classList.contains('hidden')) {
-            loadTriageQueue();
-            updateSidebarBadges();
-            loadCurrentExamCard();
-            updateLiveBottomActiveBar();
+            await fetchServerData();
         }
-    }, 1500);
+    }, 2000);
 });
 
 function logAuditAction(actionText) {
-    let logs = JSON.parse(localStorage.getItem('auditLogs')) || [];
-    logs.unshift({ user: currentUsername, action: actionText, time: new Date().toLocaleString() });
-    if (logs.length > 50) logs.pop();
-    localStorage.setItem('auditLogs', JSON.stringify(logs));
-    renderAuditLogsTable();
+    db.auditLogs.unshift({ user: currentUsername, action: actionText, time: new Date().toLocaleString() });
+    if (db.auditLogs.length > 50) db.auditLogs.pop();
+    saveAndSync();
 }
 
 function renderAuditLogsTable() {
     let tb = document.getElementById('auditLogTbody');
     if (!tb) return;
     tb.innerHTML = '';
-    let logs = JSON.parse(localStorage.getItem('auditLogs')) || [];
-    if (logs.length === 0) {
+    if (db.auditLogs.length === 0) {
         tb.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-400">لا توجد سجلات نشاط مسجلة</td></tr>`;
         return;
     }
-    logs.forEach(l => {
+    db.auditLogs.forEach(l => {
         tb.innerHTML += `<tr><td class="p-3 font-bold text-[#0097b2]">${l.user}</td><td class="p-3">${l.action}</td><td class="p-3 text-gray-500">${l.time}</td></tr>`;
     });
 }
@@ -301,19 +236,14 @@ function initDashboardCharts() {
     const ctx2 = document.getElementById('casesChart');
     if (!ctx1 || !ctx2) return;
 
-    const invoices = JSON.parse(localStorage.getItem('invoicesList')) || [];
-    let totalRev = invoices.reduce((sum, inv) => sum + Number(inv.amount || 0), 0);
-    
-    const patients = JSON.parse(localStorage.getItem('patientsList')) || [];
-    const totalPatientsCount = patients.length;
+    let totalRev = db.invoicesList.reduce((sum, inv) => sum + Number(inv.amount || 0), 0);
+    const totalPatientsCount = db.patientsList.length;
 
     const patCard = document.getElementById('statTotalPatientsCard');
     if (patCard) patCard.innerText = totalPatientsCount;
 
-    const queueData = JSON.parse(localStorage.getItem('triageQueue')) || [];
-    const apptsData = JSON.parse(localStorage.getItem('appointments')) || [];
     const apptCard = document.getElementById('statPendingAppts');
-    if (apptCard) apptCard.innerText = apptsData.length + queueData.length;
+    if (apptCard) apptCard.innerText = db.appointments.length + db.triageQueue.length;
 
     if (revChartInstance) revChartInstance.destroy();
     if (casesChartInstance) casesChartInstance.destroy();
@@ -327,14 +257,14 @@ function initDashboardCharts() {
         options: { responsive: true, maintainAspectRatio: false }
     });
 
-    let emergencyCount = queueData.filter(q => q.isEmergency).length;
+    let emergencyCount = db.triageQueue.filter(q => q.isEmergency).length;
     let normalCount = totalPatientsCount - emergencyCount > 0 ? totalPatientsCount - emergencyCount : 1;
 
     casesChartInstance = new Chart(ctx2, {
         type: 'doughnut',
         data: {
             labels: ['حالات طارئة / حرجة', 'مرضى عاديين / مسجلين', 'قائمة الانتظار'],
-            datasets: [{ data: [emergencyCount, normalCount, queueData.length], backgroundColor: ['#e11d48', '#0097b2', '#f59e0b'] }]
+            datasets: [{ data: [emergencyCount, normalCount, db.triageQueue.length], backgroundColor: ['#e11d48', '#0097b2', '#f59e0b'] }]
         },
         options: { responsive: true, maintainAspectRatio: false }
     });
@@ -353,9 +283,7 @@ function checkPatientByIdCard(idCardNumber) {
         return;
     }
 
-    const patients = JSON.parse(localStorage.getItem('patientsList')) || [];
-    const foundPatient = patients.find(p => (p.idCard || '').trim() === cleanId);
-
+    const foundPatient = db.patientsList.find(p => (p.idCard || '').trim() === cleanId);
     badge.classList.remove('hidden');
     if (foundPatient) {
         nameInput.value = foundPatient.name;
@@ -411,34 +339,19 @@ function handleTriageSubmit(e) {
     const sugar = document.getElementById('triageSugar').value.trim();
     const isEmergency = document.getElementById('triageEmergencyCheck').checked;
 
-    let patients = JSON.parse(localStorage.getItem('patientsList')) || [];
-    let patientObj = patients.find(p => (p.idCard || '').trim() === idCard);
-
+    let patientObj = db.patientsList.find(p => (p.idCard || '').trim() === idCard);
     if (!patientObj) {
-        patientObj = { 
-            name, 
-            idCard, 
-            phone: phone || '--', 
-            dob: "2000-01-01", 
-            visitsCount: 1, 
-            conditionsText: "مريض جديد", 
-            medicalHistory: { labs: [], imaging: [] } 
-        };
-        patients.push(patientObj);
+        patientObj = { name, idCard, phone: phone || '--', dob: "2000-01-01", visitsCount: 1, conditionsText: "مريض جديد", medicalHistory: { labs: [], imaging: [] } };
+        db.patientsList.push(patientObj);
     } else {
         patientObj.visitsCount = (patientObj.visitsCount || 1) + 1;
         patientObj.conditionsText = "متابع";
     }
-    localStorage.setItem('patientsList', JSON.stringify(patients));
 
-    let queue = JSON.parse(localStorage.getItem('triageQueue')) || [];
-    queue.push({ id: "Q-" + Date.now(), name, idCard, doctor, bp, weight, sugar, isEmergency, timestamp: Date.now() });
-    queue.sort((a, b) => (b.isEmergency ? 1 : 0) - (a.isEmergency ? 1 : 0) || a.timestamp - b.timestamp);
-    localStorage.setItem('triageQueue', JSON.stringify(queue));
-    
-    loadTriageQueue();
-    loadPatients();
-    updateSidebarBadges();
+    db.triageQueue.push({ id: "Q-" + Date.now(), name, idCard, doctor, bp, weight, sugar, isEmergency, timestamp: Date.now() });
+    db.triageQueue.sort((a, b) => (b.isEmergency ? 1 : 0) - (a.isEmergency ? 1 : 0) || a.timestamp - b.timestamp);
+
+    saveAndSync();
     e.target.reset();
     document.getElementById('patientStatusBadge').className = 'hidden';
     showToast("تم تسجيل المريض وإرساله لقائمة الانتظار بنجاح!");
@@ -449,14 +362,13 @@ function loadTriageQueue() {
     const tb = document.getElementById('triageQueueTbody');
     if (!tb) return;
     tb.innerHTML = '';
-    let queue = JSON.parse(localStorage.getItem('triageQueue')) || [];
-    queue.sort((a, b) => (b.isEmergency ? 1 : 0) - (a.isEmergency ? 1 : 0) || a.timestamp - b.timestamp);
-    if (queue.length === 0) {
+    db.triageQueue.sort((a, b) => (b.isEmergency ? 1 : 0) - (a.isEmergency ? 1 : 0) || a.timestamp - b.timestamp);
+    if (db.triageQueue.length === 0) {
         tb.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-gray-400 font-bold">لا يوجد مرضى بقائمة الانتظار</td></tr>`;
         populateDoctorQueueQuickDropdown();
         return;
     }
-    queue.forEach((item, index) => {
+    db.triageQueue.forEach((item, index) => {
         const isEmerg = item.isEmergency;
         const rowClass = isEmerg ? 'bg-rose-50/60 emergency-row-glow' : 'hover:bg-gray-50';
         tb.innerHTML += `
@@ -476,19 +388,17 @@ function loadTriageQueue() {
 }
 
 function doctorCallPatient(patientName) {
-    let queue = JSON.parse(localStorage.getItem('triageQueue')) || [];
-    let targetIndex = queue.findIndex(q => q.name === patientName);
+    let targetIndex = db.triageQueue.findIndex(q => q.name === patientName);
     if (targetIndex === -1) return;
-    let targetPatient = queue[targetIndex];
-    queue.splice(targetIndex, 1);
-    localStorage.setItem('triageQueue', JSON.stringify(queue));
-    loadTriageQueue();
-    updateSidebarBadges();
-
+    let targetPatient = db.triageQueue[targetIndex];
+    db.triageQueue.splice(targetIndex, 1);
+    
     currentPatientInExam = { name: targetPatient.name, idCard: targetPatient.idCard, doctor: targetPatient.doctor, bp: targetPatient.bp, sugar: targetPatient.sugar, weight: targetPatient.weight, isEmergency: targetPatient.isEmergency, startedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
     localStorage.setItem('currentPatientInExam', JSON.stringify(currentPatientInExam));
 
+    saveAndSync();
     triggerNurseNextPatientAlert(targetPatient.name, targetPatient.doctor);
+    if (socket) socket.emit('doctor-call-patient', { patientName: targetPatient.name, doctorName: targetPatient.doctor });
 
     switchTab('examination');
     loadCurrentExamCard();
@@ -573,43 +483,37 @@ function confirmFinishExamination(e) {
     let ivFee = parseFloat(document.getElementById('modalIvFee').value) || 0;
     let totalAmount = consultFee + ecgFee + ivFee;
 
-    let invs = JSON.parse(localStorage.getItem('invoicesList')) || [];
-    invs.push({
-        invNum: "INV-" + (1000 + invs.length + 1),
+    db.invoicesList.push({
+        invNum: "INV-" + (1000 + db.invoicesList.length + 1),
         patient: currentPatientInExam.name,
         service: `كشفية ($${consultFee}) + ECG ($${ecgFee}) + محلول ($${ivFee})`,
         amount: totalAmount,
         status: "مدفوع"
     });
-    localStorage.setItem('invoicesList', JSON.stringify(invs));
 
     closeExamPricingModal();
     logAuditAction(`إنهاء فحص وتخريج المريض وإصدار فاتورة: ${currentPatientInExam.name}`);
     
-    let queue = JSON.parse(localStorage.getItem('triageQueue')) || [];
-    if (queue.length > 0) {
-        let nextPatient = queue[0];
+    if (db.triageQueue.length > 0) {
+        let nextPatient = db.triageQueue[0];
         triggerNurseNextPatientAlert(nextPatient.name, nextPatient.doctor);
     }
 
     currentPatientInExam = null;
     localStorage.removeItem('currentPatientInExam');
-    updateLiveBottomActiveBar();
-    loadInvoices();
+    saveAndSync();
     showToast("تم تخريج المريض وإصدار الفاتورة الشاملة بنجاح!");
 }
 
 function populateTriageDoctorDropdown() {
-    let d = JSON.parse(localStorage.getItem('doctorsList')) || [];
     let sel = document.getElementById('triageDoctor');
     let aDoc = document.getElementById('aDoc');
-    if (sel) { sel.innerHTML = `<option value="">اختر الطبيب</option>`; d.forEach(item => sel.innerHTML += `<option>${item.name}</option>`); }
-    if (aDoc) { aDoc.innerHTML = ''; d.forEach(item => aDoc.innerHTML += `<option>${item.name}</option>`); }
+    if (sel) { sel.innerHTML = `<option value="">اختر الطبيب</option>`; db.doctorsList.forEach(item => sel.innerHTML += `<option>${item.name}</option>`); }
+    if (aDoc) { aDoc.innerHTML = ''; db.doctorsList.forEach(item => aDoc.innerHTML += `<option>${item.name}</option>`); }
 }
 function populateDoctorQueueQuickDropdown() {
-    let q = JSON.parse(localStorage.getItem('triageQueue')) || [];
     const sel = document.getElementById('docQueueQuickSelect');
-    if (sel) { sel.innerHTML = `<option value="">-- اختر مريضاً للفحص --</option>`; q.forEach(item => sel.innerHTML += `<option>${item.name}</option>`); }
+    if (sel) { sel.innerHTML = `<option value="">-- اختر مريضاً للفحص --</option>`; db.triageQueue.forEach(item => sel.innerHTML += `<option>${item.name}</option>`); }
 }
 
 function toggleLanguage() {
@@ -622,6 +526,7 @@ function toggleLanguage() {
 function applyLanguage() {
     const t = translations[currentLang];
     const root = document.getElementById('htmlRoot');
+    if (!t) return;
     root.setAttribute('lang', currentLang);
     root.setAttribute('dir', currentLang === 'ar' ? 'rtl' : 'ltr');
 
@@ -635,7 +540,6 @@ function applyLanguage() {
     if (currentPatientInExam) renderPatientMedicalHistoryInExam(currentPatientInExam.name);
 }
 
-// دالة تسجيل الدخول عبر الاتصال المباشر بالسيرفر السحابي أو المحلي
 async function handleLogin(e) {
     e.preventDefault();
     const u = document.getElementById('loginUser').value.trim();
@@ -683,16 +587,9 @@ function showApp() {
 
     buildSidebarMenu();
     switchTab(currentAllowedTabs[0] || 'dashboard');
-    loadPatients();
-    loadDoctors();
-    loadAppointments();
-    loadInvoices();
-    loadTriageQueue();
-    updateLiveBottomActiveBar();
+    refreshAllUIs();
     populateTriageDoctorDropdown();
     loadClinicSettingsInputs();
-    renderAuditLogsTable();
-    initDashboardCharts();
 }
 
 function buildSidebarMenu() {
@@ -718,9 +615,8 @@ function buildSidebarMenu() {
 }
 
 function updateSidebarBadges() {
-    const queue = JSON.parse(localStorage.getItem('triageQueue')) || [];
     const bQueue = document.getElementById('badge-queue');
-    if (bQueue) bQueue.innerText = queue.length;
+    if (bQueue) bQueue.innerText = db.triageQueue.length;
 }
 
 function switchTab(tabId) {
@@ -759,16 +655,14 @@ function addPatientSimpleModal(e) {
     let dob = document.getElementById('modalPatDob').value;
     let phone = document.getElementById('modalPatPhone').value;
 
-    let p = JSON.parse(localStorage.getItem('patientsList')) || [];
-    let existing = p.find(item => (item.idCard || '').trim() === idCard);
+    let existing = db.patientsList.find(item => (item.idCard || '').trim() === idCard);
     if (existing) {
         alert("رقم بطاقة التعريف مسجل مسبقاً لمريض آخر!");
         return;
     }
 
-    p.push({ name, idCard, dob, phone, visitsCount: 1, conditionsText: "مسجل جديد", medicalHistory: { labs: [], imaging: [] } });
-    localStorage.setItem('patientsList', JSON.stringify(p));
-    loadPatients();
+    db.patientsList.push({ name, idCard, dob, phone, visitsCount: 1, conditionsText: "مسجل جديد", medicalHistory: { labs: [], imaging: [] } });
+    saveAndSync();
     closeModal('simple');
     showToast("تم تسجيل المريض بنجاح!");
     logAuditAction(`تسجيل مريض جديد من القائمة: ${name} (ID: ${idCard})`);
@@ -778,7 +672,7 @@ function loadPatients() {
     let tb = document.getElementById('patientsTbody');
     if (!tb) return;
     tb.innerHTML = '';
-    (JSON.parse(localStorage.getItem('patientsList')) || []).forEach((p, i) => {
+    db.patientsList.forEach((p, i) => {
         let editControls = currentUserRole === 'admin' ? `
             <button id="p-edit-btn-${i}" onclick="enablePatientEdit(${i})" class="bg-blue-50 border text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-pen-to-square"></i> تعديل</button>
             <button id="p-save-btn-${i}" onclick="savePatientEdit(${i})" class="hidden bg-emerald-50 border text-emerald-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-floppy-disk"></i> حفظ</button>
@@ -810,24 +704,20 @@ function enablePatientEdit(i) {
 }
 
 function savePatientEdit(i) {
-    let p = JSON.parse(localStorage.getItem('patientsList')) || [];
-    if (p[i]) {
-        p[i].name = document.getElementById(`p-name-${i}`).value;
-        p[i].idCard = document.getElementById(`p-idcard-${i}`).value;
-        p[i].dob = document.getElementById(`p-dob-${i}`).value;
-        p[i].phone = document.getElementById(`p-phone-${i}`).value;
-        localStorage.setItem('patientsList', JSON.stringify(p));
-        loadPatients();
+    if (db.patientsList[i]) {
+        db.patientsList[i].name = document.getElementById(`p-name-${i}`).value;
+        db.patientsList[i].idCard = document.getElementById(`p-idcard-${i}`).value;
+        db.patientsList[i].dob = document.getElementById(`p-dob-${i}`).value;
+        db.patientsList[i].phone = document.getElementById(`p-phone-${i}`).value;
+        saveAndSync();
         showToast("تم الحفظ!");
         logAuditAction(`تعديل بيانات المريض رقم ${i}`);
     }
 }
 
 function deletePatient(i) {
-    let p = JSON.parse(localStorage.getItem('patientsList')) || [];
-    p.splice(i, 1);
-    localStorage.setItem('patientsList', JSON.stringify(p));
-    loadPatients();
+    db.patientsList.splice(i, 1);
+    saveAndSync();
     showToast("تم الحذف");
     logAuditAction("حذف مريض من النظام");
 }
@@ -836,9 +726,7 @@ function renderStaffManagementTable() {
     let tb = document.getElementById('staffManagementTableBody');
     if (!tb) return;
     tb.innerHTML = '';
-    let staff = JSON.parse(localStorage.getItem('staffList')) || [];
-    
-    staff.forEach((s, i) => {
+    db.staffList.forEach((s, i) => {
         let editControls = currentUserRole === 'admin' ? `
             <button id="st-edit-btn-${i}" onclick="enableStaffMemberEdit(${i})" class="bg-blue-50 border text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-pen"></i> تعديل</button>
             <button id="st-save-btn-${i}" onclick="saveStaffMemberEdit(${i})" class="hidden bg-emerald-50 border text-emerald-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-floppy-disk"></i> حفظ</button>
@@ -874,25 +762,21 @@ function enableStaffMemberEdit(i) {
 }
 
 function saveStaffMemberEdit(i) {
-    let staff = JSON.parse(localStorage.getItem('staffList')) || [];
-    if (staff[i]) {
-        staff[i].name = document.getElementById(`st-name-${i}`).value;
-        staff[i].username = document.getElementById(`st-user-${i}`).value;
-        staff[i].password = document.getElementById(`st-pass-${i}`).value;
-        staff[i].role = document.getElementById(`st-role-${i}`).value;
-        localStorage.setItem('staffList', JSON.stringify(staff));
-        renderStaffManagementTable();
+    if (db.staffList[i]) {
+        db.staffList[i].name = document.getElementById(`st-name-${i}`).value;
+        db.staffList[i].username = document.getElementById(`st-user-${i}`).value;
+        db.staffList[i].password = document.getElementById(`st-pass-${i}`).value;
+        db.staffList[i].role = document.getElementById(`st-role-${i}`).value;
+        saveAndSync();
         showToast("تم حفظ تعديل المستخدم وكلمة المرور بنجاح!");
-        logAuditAction(`تعديل بيانات المستخدم: ${staff[i].name}`);
+        logAuditAction(`تعديل بيانات المستخدم: ${db.staffList[i].name}`);
     }
 }
 
 function deleteStaffMember(i) {
-    let staff = JSON.parse(localStorage.getItem('staffList')) || [];
-    if (staff.length <= 1) { alert("لا يمكن حذف المسؤول الأخير!"); return; }
-    staff.splice(i, 1);
-    localStorage.setItem('staffList', JSON.stringify(staff));
-    renderStaffManagementTable();
+    if (db.staffList.length <= 1) { alert("لا يمكن حذف المسؤول الأخير!"); return; }
+    db.staffList.splice(i, 1);
+    saveAndSync();
     showToast("تم الحذف");
     logAuditAction("حذف مستخدم من النظام");
 }
@@ -901,17 +785,15 @@ function loadDoctors() {
     let tb = document.getElementById('doctorsTbody');
     if (!tb) return;
     tb.innerHTML = '';
-    (JSON.parse(localStorage.getItem('doctorsList')) || []).forEach((d, i) => {
+    db.doctorsList.forEach((d, i) => {
         let delBtn = currentUserRole === 'admin' ? `<button onclick="deleteDoctor(${i})" class="text-red-500 font-bold"><i class="fa-solid fa-trash"></i></button>` : '';
         tb.innerHTML += `<tr><td class="py-3 font-bold">${d.name}</td><td class="py-3 text-gray-500">${d.specialty}</td><td class="py-3 text-gray-500">${d.shift}</td><td class="py-3 text-gray-500">${d.phone}</td><td class="py-3">${delBtn}</td></tr>`;
     });
     populateTriageDoctorDropdown();
 }
 function deleteDoctor(i) {
-    let d = JSON.parse(localStorage.getItem('doctorsList')) || [];
-    d.splice(i, 1);
-    localStorage.setItem('doctorsList', JSON.stringify(d));
-    loadDoctors();
+    db.doctorsList.splice(i, 1);
+    saveAndSync();
     showToast("تم الحذف");
     logAuditAction("حذف طبيب من النظام");
 }
@@ -921,8 +803,7 @@ function loadAppointments() {
     let tb2 = document.getElementById('fullAppointmentsTbody');
     if (tb1) tb1.innerHTML = '';
     if (tb2) tb2.innerHTML = '';
-    let a = JSON.parse(localStorage.getItem('appointments')) || [];
-    a.forEach((item, i) => {
+    db.appointments.forEach((item, i) => {
         let delBtn = currentUserRole === 'admin' ? `<button onclick="deleteAppointment(${i})" class="text-red-500 font-bold"><i class="fa-solid fa-trash"></i></button>` : '';
         let row = `<tr><td class="py-3 font-bold">${item.name}</td><td class="py-3 text-indigo-700">${item.doctor}</td><td class="py-3 text-gray-500">${item.date}</td><td class="py-3"><span class="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold">${item.status}</span></td><td class="py-3">${delBtn}</td></tr>`;
         if (tb1) tb1.innerHTML += row;
@@ -930,11 +811,8 @@ function loadAppointments() {
     });
 }
 function deleteAppointment(i) {
-    let a = JSON.parse(localStorage.getItem('appointments')) || [];
-    a.splice(i, 1);
-    localStorage.setItem('appointments', JSON.stringify(a));
-    loadAppointments();
-    updateSidebarBadges();
+    db.appointments.splice(i, 1);
+    saveAndSync();
     showToast("تم الحذف");
     logAuditAction("حذف موعد");
 }
@@ -943,9 +821,8 @@ function loadInvoices() {
     let tb = document.getElementById('invoicesTbody');
     if (!tb) return;
     tb.innerHTML = '';
-    let invs = JSON.parse(localStorage.getItem('invoicesList')) || [];
     let tot = 0;
-    invs.forEach((inv, i) => {
+    db.invoicesList.forEach((inv, i) => {
         tot += Number(inv.amount);
         let delBtn = currentUserRole === 'admin' ? `<button onclick="deleteInvoice(${i})" class="text-red-500 font-bold"><i class="fa-solid fa-trash"></i></button>` : '';
         tb.innerHTML += `<tr><td class="p-3.5 font-bold">${inv.invNum}</td><td class="p-3.5">${inv.patient}</td><td class="p-3.5 text-gray-500">${inv.service}</td><td class="p-3.5 font-bold text-[#0097b2]">$${inv.amount}</td><td class="p-3.5 text-emerald-600 font-bold text-xs">${inv.status}</td><td class="p-3.5">${delBtn}</td></tr>`;
@@ -953,10 +830,8 @@ function loadInvoices() {
     document.getElementById('statTotalRevenue').innerText = `$${tot}`;
 }
 function deleteInvoice(i) {
-    let invs = JSON.parse(localStorage.getItem('invoicesList')) || [];
-    invs.splice(i, 1);
-    localStorage.setItem('invoicesList', JSON.stringify(invs));
-    loadInvoices();
+    db.invoicesList.splice(i, 1);
+    saveAndSync();
     showToast("تم الحذف");
     logAuditAction("حذف فاتورة مالية");
 }
@@ -973,9 +848,7 @@ function openModal(type) {
         document.getElementById('modal-invoice').classList.remove('hidden');
     } else {
         document.getElementById('modal-simple').classList.remove('hidden');
-        if (type === 'patient') {
-            document.getElementById('form-newPatient').classList.remove('hidden');
-        }
+        if (type === 'patient') document.getElementById('form-newPatient').classList.remove('hidden');
         if (type === 'appointment') document.getElementById('form-newAppt').classList.remove('hidden');
         if (type === 'doctor') document.getElementById('form-newDoctor').classList.remove('hidden');
         if (type === 'staff') document.getElementById('form-newStaff').classList.remove('hidden');
@@ -990,10 +863,8 @@ function closeModal(id) {
 
 function addDoctor(e) {
     e.preventDefault();
-    let d = JSON.parse(localStorage.getItem('doctorsList')) || [];
-    d.push({ name: document.getElementById('dName').value, specialty: document.getElementById('dSpec').value, shift: "8ص - 4م", phone: "0500000000" });
-    localStorage.setItem('doctorsList', JSON.stringify(d));
-    loadDoctors();
+    db.doctorsList.push({ name: document.getElementById('dName').value, specialty: document.getElementById('dSpec').value, shift: "8ص - 4م", phone: "0500000000" });
+    saveAndSync();
     closeModal('simple');
     showToast("تم حفظ الطبيب");
     logAuditAction(`إضافة طبيب جديد: ${document.getElementById('dName').value}`);
@@ -1001,11 +872,8 @@ function addDoctor(e) {
 
 function addAppointment(e) {
     e.preventDefault();
-    let a = JSON.parse(localStorage.getItem('appointments')) || [];
-    a.push({ name: document.getElementById('aPat').value, doctor: document.getElementById('aDoc').value, date: document.getElementById('aDate').value, status: "مؤكد" });
-    localStorage.setItem('appointments', JSON.stringify(a));
-    loadAppointments();
-    updateSidebarBadges();
+    db.appointments.push({ name: document.getElementById('aPat').value, doctor: document.getElementById('aDoc').value, date: document.getElementById('aDate').value, status: "مؤكد" });
+    saveAndSync();
     closeModal('simple');
     showToast("تم حجز الموعد");
     logAuditAction(`حجز موعد للمريض: ${document.getElementById('aPat').value}`);
@@ -1013,42 +881,26 @@ function addAppointment(e) {
 
 function addStaff(e) {
     e.preventDefault();
-    let s = JSON.parse(localStorage.getItem('staffList')) || [];
-    s.push({ name: document.getElementById('sName').value, username: document.getElementById('sUser').value, password: document.getElementById('sPass').value, role: document.getElementById('sRole').value, allowedTabs: ['dashboard', 'reception', 'appointments', 'patients', 'invoices', 'prescriptions'] });
-    localStorage.setItem('staffList', JSON.stringify(s));
+    db.staffList.push({ name: document.getElementById('sName').value, username: document.getElementById('sUser').value, password: document.getElementById('sPass').value, role: document.getElementById('sRole').value, allowedTabs: ['dashboard', 'reception', 'appointments', 'patients', 'invoices', 'prescriptions'] });
+    saveAndSync();
     closeModal('simple');
-    renderStaffManagementTable();
     showToast("تم إنشاء الموظف");
     logAuditAction(`إنشاء حساب موظف جديد: ${document.getElementById('sName').value}`);
 }
 
 function saveInvoice(e) {
     e.preventDefault();
-    let invs = JSON.parse(localStorage.getItem('invoicesList')) || [];
     let patName = document.getElementById('invPatientSelect').value || "مريض عام";
     let fee = parseFloat(document.getElementById('invConsultFee').value) || 30;
-    invs.push({ invNum: "INV-" + (1000 + invs.length + 1), patient: patName, service: "كشفية زيارة", amount: fee, status: "مدفوع" });
-    localStorage.setItem('invoicesList', JSON.stringify(invs));
+    db.invoicesList.push({ invNum: "INV-" + (1000 + db.invoicesList.length + 1), patient: patName, service: "كشفية زيارة", amount: fee, status: "مدفوع" });
+    saveAndSync();
     closeModal('invoice');
-    loadInvoices();
     showToast("تم إصدار الفاتورة");
     logAuditAction(`إصدار فاتورة للمريض: ${patName}`);
 }
 
 function loadClinicSettingsInputs() {
-    const stg = JSON.parse(localStorage.getItem('clinicSettings')) || {
-        clinicName: "عيادات الأسرة",
-        specialty: "طب عام وجراحة",
-        phone: "0790950784",
-        address: "الدوار السابع الروابي",
-        defaultFee: 30,
-        taxRate: 0,
-        currency: "$",
-        workingHours: "08:00 AM - 04:00 PM",
-        printSize: "A4",
-        soundAlerts: "on"
-    };
-
+    const stg = { clinicName: "عيادات الأسرة", specialty: "طب عام وجراحة", phone: "0790950784", address: "الدوار السابع الروابي", defaultFee: 30, taxRate: 0, currency: "$", workingHours: "08:00 AM - 04:00 PM", printSize: "A4", soundAlerts: "on" };
     if (document.getElementById('stgClinicName')) document.getElementById('stgClinicName').value = stg.clinicName || '';
     if (document.getElementById('stgSpecialty')) document.getElementById('stgSpecialty').value = stg.specialty || '';
     if (document.getElementById('stgPhone')) document.getElementById('stgPhone').value = stg.phone || '';
@@ -1064,31 +916,17 @@ function loadClinicSettingsInputs() {
 function saveClinicSettings(e) {
     e.preventDefault();
     if (currentUserRole !== 'admin') { alert("تعديل الإعدادات متاح للمسؤول فقط!"); return; }
-    const stg = {
-        clinicName: document.getElementById('stgClinicName').value,
-        specialty: document.getElementById('stgSpecialty').value,
-        phone: document.getElementById('stgPhone').value,
-        address: document.getElementById('stgAddress').value,
-        defaultFee: parseFloat(document.getElementById('stgDefaultFee').value) || 30,
-        taxRate: parseFloat(document.getElementById('stgTaxRate').value) || 0,
-        currency: document.getElementById('stgCurrency').value,
-        workingHours: document.getElementById('stgWorkingHours').value,
-        printSize: document.getElementById('stgPrintSize').value,
-        soundAlerts: document.getElementById('stgSoundAlerts').value
-    };
-    localStorage.setItem('clinicSettings', JSON.stringify(stg));
     showToast("تم حفظ إعدادات النظام بنجاح!");
     logAuditAction("تحديث إعدادات النظام العامة");
 }
 
 function exportDatabaseBackup() {
-    let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(localStorage));
+    let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db));
     let dlAnchorElem = document.createElement('a');
     dlAnchorElem.setAttribute("href", dataStr);
     dlAnchorElem.setAttribute("download", "clinic_backup_" + new Date().toISOString().split('T')[0] + ".json");
     dlAnchorElem.click();
     showToast("تم تصدير النسخة الاحتياطية بنجاح");
-    logAuditAction("تصدير نسخة احتياطية للنظام");
 }
 
 function importDatabaseBackup(event) {
@@ -1097,13 +935,9 @@ function importDatabaseBackup(event) {
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            let backupData = JSON.parse(e.target.result);
-            for (let key in backupData) {
-                localStorage.setItem(key, backupData[key]);
-            }
+            db = JSON.parse(e.target.result);
+            saveAndSync();
             showToast("تم استرجاع النسخة الاحتياطية بنجاح!");
-            logAuditAction("استرجاع نسخة احتياطية للنظام");
-            setTimeout(() => location.reload(), 1500);
         } catch(err) {
             alert("ملف النسخة الاحتياطية غير صالح!");
         }
@@ -1116,12 +950,7 @@ function addDrugToTemplateList() {
     let doses = document.getElementById('prescDoses').value;
     let time = document.getElementById('prescTime').value;
     let duration = document.getElementById('prescDuration').value.trim() || "5 أيام";
-
-    if (!drugName) {
-        alert("يرجى كتابة اسم الدواء أولاً!");
-        return;
-    }
-
+    if (!drugName) { alert("يرجى كتابة اسم الدواء أولاً!"); return; }
     currentPrescriptionItems.push({ drugName, doses, time, duration });
     document.getElementById('prescDrugName').value = '';
     document.getElementById('prescDuration').value = '';
@@ -1132,20 +961,15 @@ function renderCurrentPrescriptionTable() {
     let tb = document.getElementById('currentPrescriptionTableBody');
     let hiddenText = document.getElementById('examPrescriptionText');
     if (!tb) return;
-
     if (currentPrescriptionItems.length === 0) {
         tb.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-gray-400">لم يتم إضافة أدوية للوصفة بعد</td></tr>`;
         hiddenText.value = "";
         return;
     }
-
     tb.innerHTML = '';
     let formattedTextLines = [];
-
     currentPrescriptionItems.forEach((item, index) => {
-        let lineStr = `- ${item.drugName} | الجرعة: ${item.doses} | الوقت: ${item.time} | المدة: ${item.duration}`;
-        formattedTextLines.push(lineStr);
-
+        formattedTextLines.push(`- ${item.drugName} | الجرعة: ${item.doses} | الوقت: ${item.time} | المدة: ${item.duration}`);
         tb.innerHTML += `
             <tr>
                 <td class="p-2.5 font-bold text-purple-950">${item.drugName}</td>
@@ -1156,7 +980,6 @@ function renderCurrentPrescriptionTable() {
             </tr>
         `;
     });
-
     hiddenText.value = formattedTextLines.join('\n');
 }
 
@@ -1170,19 +993,16 @@ function saveAndDispensePrescription() {
     if (!prescText) { alert("يرجى إضافة أدوية للوصفة أولاً!"); return; }
     let patName = currentPatientInExam ? currentPatientInExam.name : "مريض عام";
 
-    let prescriptions = JSON.parse(localStorage.getItem('prescriptionsList')) || [];
-    prescriptions.unshift({
+    db.prescriptionsList.unshift({
         patient: patName,
         doctor: currentPatientInExam ? currentPatientInExam.doctor : currentUsername,
         date: new Date().toLocaleDateString(),
         medications: prescText,
         status: "تم الصرف"
     });
-    localStorage.setItem('prescriptionsList', JSON.stringify(prescriptions));
-    
+    saveAndSync();
     showToast("تم حفظ وصرف الوصفة الطبية بنجاح!");
     logAuditAction(`صرف وصفة طبية منظمة للمريض: ${patName}`);
-    
     currentPrescriptionItems = [];
     renderCurrentPrescriptionTable();
 }
@@ -1213,7 +1033,6 @@ function printPrescriptionReport() {
         </html>
     `);
     printWindow.document.close();
-    logAuditAction(`طباعة تقرير الفحص والوصفة للمريض: ${patName}`);
 }
 
 function handleFileSelection(event) {
@@ -1232,14 +1051,6 @@ function clearSelectedFile() {
     document.getElementById('medFileInput').value = "";
     document.getElementById('filePreviewContainer').classList.add('hidden');
 }
-function handlePatientInitFile(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    currentPatientInitFileName = file.name;
-    const reader = new FileReader();
-    reader.onload = function(e) { currentPatientInitFileBase64 = e.target.result; };
-    reader.readAsDataURL(file);
-}
 
 function renderPatientMedicalHistoryInExam(patientName) {
     const labsBox = document.getElementById('examPastLabsContainer');
@@ -1247,16 +1058,15 @@ function renderPatientMedicalHistoryInExam(patientName) {
     if (!labsBox || !imgBox) return;
     labsBox.innerHTML = '';
     imgBox.innerHTML = '';
-    const patients = JSON.parse(localStorage.getItem('patientsList')) || [];
-    const patient = patients.find(p => p.name.trim().toLowerCase() === (patientName || '').trim().toLowerCase());
+    const patient = db.patientsList.find(p => p.name.trim().toLowerCase() === (patientName || '').trim().toLowerCase());
     const labs = (patient && patient.medicalHistory && patient.medicalHistory.labs) || [];
     const imaging = (patient && patient.medicalHistory && patient.medicalHistory.imaging) || [];
 
     if (labs.length === 0) labsBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد تحاليل</p>`;
-    else labs.forEach(l => labsBox.innerHTML += `<div class="p-2.5 rounded-2xl border bg-emerald-50 text-xs shadow-sm"><b class="text-emerald-900">${l.title}</b> (${l.date}): ${l.result} ${l.fileData ? `<a href="${l.fileData}" target="_blank" class="text-blue-600 underline block mt-1"><i class="fa-solid fa-file-arrow-down"></i> ${l.fileName}</a>` : ''}</div>`);
+    else labs.forEach(l => labsBox.innerHTML += `<div class="p-2.5 rounded-2xl border bg-emerald-50 text-xs shadow-sm"><b class="text-emerald-900">${l.title}</b> (${l.date}): ${l.result}</div>`);
 
     if (imaging.length === 0) imgBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد أشعة أو سكانير</p>`;
-    else imaging.forEach(img => imgBox.innerHTML += `<div class="p-2.5 rounded-2xl border bg-blue-50 text-xs shadow-sm"><b class="text-blue-900">${img.title}</b> (${img.date}): ${img.result} ${img.fileData ? `<a href="${img.fileData}" target="_blank" class="text-blue-600 underline block mt-1"><i class="fa-solid fa-image"></i> معاينة صورة السكانير/الأشعة</a>` : ''}</div>`);
+    else imaging.forEach(img => imgBox.innerHTML += `<div class="p-2.5 rounded-2xl border bg-blue-50 text-xs shadow-sm"><b class="text-blue-900">${img.title}</b> (${img.date}): ${img.result}</div>`);
 }
 
 function openAddMedicalRecordModal() {
@@ -1276,32 +1086,29 @@ function savePatientMedicalRecordWithFile(e) {
     const title = document.getElementById('medRecTitle').value.trim();
     const result = document.getElementById('medRecResult').value.trim();
 
-    let patients = JSON.parse(localStorage.getItem('patientsList')) || [];
-    let patient = patients.find(p => p.name.trim().toLowerCase() === patName.toLowerCase());
-    if (!patient) {
-        patient = { name: patName, dob: "2000-01-01", phone: "--", visitsCount: 1, conditionsText: "مسجل", medicalHistory: { labs: [], imaging: [] } };
-        patients.push(patient);
+    let patient = db.patientsList.find(p => p.name.trim().toLowerCase() === patName.toLowerCase());
+    if (patient) {
+        if (!patient.medicalHistory) patient.medicalHistory = { labs: [], imaging: [] };
+        const recordObj = { date, title, result, fileData: currentUploadedFileBase64, fileName: currentUploadedFileName };
+        if (type === 'lab') patient.medicalHistory.labs.unshift(recordObj);
+        else patient.medicalHistory.imaging.unshift(recordObj);
+        saveAndSync();
+        closeModal('medical-record');
+        if (currentPatientInExam && currentPatientInExam.name === patName) renderPatientMedicalHistoryInExam(patName);
+        showToast("تم الحفظ بنجاح!");
     }
-    if (!patient.medicalHistory) patient.medicalHistory = { labs: [], imaging: [] };
-    const recordObj = { date, title, result, fileData: currentUploadedFileBase64, fileName: currentUploadedFileName };
-    if (type === 'lab') patient.medicalHistory.labs.unshift(recordObj);
-    else patient.medicalHistory.imaging.unshift(recordObj);
-
-    localStorage.setItem('patientsList', JSON.stringify(patients));
-    clearSelectedFile();
-    closeModal('medical-record');
-    if (currentPatientInExam && currentPatientInExam.name === patName) renderPatientMedicalHistoryInExam(patName);
-    showToast("تم الحفظ بنجاح!");
-    logAuditAction(`إدراج سجل طبي للمريض: ${patName}`);
 }
 
 function resetClinicData() {
     if (currentUserRole !== 'admin') { alert("تصفير بيانات العيادة مخصص للمسؤول فقط!"); return; }
     let conf = confirm("تحذير: هل أنت متأكد من رغبتك في تصفير معطيات العيادة؟");
     if (conf) {
-        localStorage.clear();
+        db.patientsList = [];
+        db.appointments = [];
+        db.invoicesList = [];
+        db.triageQueue = [];
+        db.prescriptionsList = [];
+        saveAndSync();
         showToast("تم التصفير بنجاح!");
-        logAuditAction("إعادة ضبط المصنع وتصفير بيانات العيادة");
-        setTimeout(() => location.reload(), 1500);
     }
 }
