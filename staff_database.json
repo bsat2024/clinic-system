@@ -1,0 +1,35 @@
+[
+  {
+    "name": "Yazan Hamaideh",
+    "username": "admin",
+    "password": "123",
+    "role": "admin",
+    "allowedTabs": [
+      "dashboard",
+      "reception",
+      "examination",
+      "appointments",
+      "patients",
+      "doctors",
+      "prescriptions",
+      "invoices",
+      "reports",
+      "staff",
+      "settings"
+    ]
+  },
+  {
+    "name": "موظف الاستقبال",
+    "username": "reception",
+    "password": "123",
+    "role": "receptionist",
+    "allowedTabs": [
+      "dashboard",
+      "reception",
+      "appointments",
+      "patients",
+      "invoices",
+      "prescriptions"
+    ]
+  }
+]

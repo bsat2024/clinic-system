@@ -1,0 +1,124 @@
+{
+  "auditLogs": [
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل دخول المدير للنظام",
+      "time": "08/09/2026 10:56:34"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل الخروج من النظام",
+      "time": "08/09/2026 10:56:33"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل دخول المدير للنظام",
+      "time": "08/09/2026 10:49:33"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل الخروج من النظام",
+      "time": "08/09/2026 10:49:32"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل دخول المدير للنظام",
+      "time": "08/09/2026 10:49:22"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل دخول المدير للنظام",
+      "time": "08/09/2026 10:42:14"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل الخروج من النظام",
+      "time": "08/09/2026 10:42:13"
+    },
+    {
+      "user": "موظف الاستقبال",
+      "action": "تسجيل دخول الموظف: موظف الاستقبال",
+      "time": "08/09/2026 10:39:42"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل الخروج من النظام",
+      "time": "08/09/2026 10:39:19"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل دخول المدير للنظام",
+      "time": "08/09/2026 10:38:43"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل الخروج من النظام",
+      "time": "08/09/2026 10:38:42"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل دخول المدير للنظام",
+      "time": "08/09/2026 10:32:34"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل الخروج من النظام",
+      "time": "08/09/2026 10:32:33"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل دخول المدير للنظام",
+      "time": "08/09/2026 10:27:52"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل الخروج من النظام",
+      "time": "08/09/2026 10:27:22"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل مريض جديد من القائمة: hamza (ID: 12345655)",
+      "time": "08/09/2026 10:24:44"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل دخول المدير للنظام",
+      "time": "08/09/2026 10:23:36"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل دخول المدير للنظام",
+      "time": "08/09/2026 10:20:24"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل الخروج من النظام",
+      "time": "08/09/2026 10:20:19"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل دخول المدير للنظام",
+      "time": "08/09/2026 10:16:46"
+    },
+    {
+      "user": "موظف الاستقبال",
+      "action": "تسجيل الخروج من النظام",
+      "time": "08/09/2026 10:16:42"
+    },
+    {
+      "user": "موظف الاستقبال",
+      "action": "تسجيل دخول الموظف: موظف الاستقبال",
+      "time": "08/09/2026 09:42:56"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل الخروج من النظام",
+      "time": "08/09/2026 09:42:34"
+    },
+    {
+      "user": "Yazan Hamaideh (Admin)",
+      "action": "تسجيل دخول المدير للنظام",
+      "time": "08/09/2026 09:41:39"
+    }
+  ]
+}

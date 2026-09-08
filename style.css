@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
+
+body {
+    font-family: 'Tajawal', system-ui, -apple-system, sans-serif;
+    background-color: #f4f7fe;
+}
+
+html[dir="rtl"] #appContainer { flex-direction: row; }
+html[dir="ltr"] #appContainer { flex-direction: row-reverse; }
+
+@media (max-width: 768px) {
+    #appContainer {
+        flex-direction: column !important;
+    }
+    #mainSidebar {
+        width: 100% !important;
+        height: auto !important;
+        max-height: 200px !important;
+    }
+    .flex-1 {
+        padding: 10px !important;
+    }
+}
+
+#mainSidebar.sidebar-collapsed {
+    width: 5rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+}
+#mainSidebar.sidebar-collapsed .sidebar-text-group,
+#mainSidebar.sidebar-collapsed .badge-count {
+    display: none !important;
+}
+#mainSidebar.sidebar-collapsed .sidebar-header {
+    justify-content: center !important;
+}
+#mainSidebar.sidebar-collapsed nav button {
+    justify-content: center !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+}
+#mainSidebar.sidebar-collapsed #btnLogout {
+    justify-content: center !important;
+}
+
+.user-active {
+    background-color: #e0f2fe !important;
+    border-right: 4px solid #0097b2 !important;
+}
+html[dir="ltr"] .user-active {
+    border-right: none !important;
+    border-left: 4px solid #0097b2 !important;
+}
+
+@keyframes pulseEmergency {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); border-color: #e11d48; }
+    50% { box-shadow: 0 0 0 8px rgba(225, 29, 72, 0); border-color: #be123c; }
+}
+.emergency-row-glow {
+    animation: pulseEmergency 1.8s infinite;
+}
