@@ -7,9 +7,14 @@ let currentUploadedFileBase64 = null;
 let currentUploadedFileName = "";
 let currentPrescriptionItems = [];
 
+let currentPatientInitFileBase64 = null;
+let currentPatientInitFileName = "";
+let extraFileBase64 = null;
+let extraFileName = "";
+let selectedPatientForExtraFile = "";
+
 let currentAllowedTabs = ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'];
 
-// تهيئة قاعدة البيانات بالاعتماد على الذاكرة المحلية
 let db = JSON.parse(localStorage.getItem('clinicOfflineDB')) || {
     staffList: [
         { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'] },
@@ -30,7 +35,6 @@ let socket = null;
 try {
     socket = io(window.location.origin, { reconnectionAttempts: 5, reconnectionDelay: 1000 });
     
-    // استقبال التحديثات الحية الفورية من السيرفر وبثها لقوائم العيادة
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData) {
             db = serverData;
@@ -44,14 +48,12 @@ try {
     });
 } catch(e) {}
 
-// جلب البيانات من السيرفر عند الإقلاع وتحديث الكاش المحلي
 async function fetchServerDataInitial() {
     try {
         let res = await fetch(window.location.origin + '/api/data');
         if (res.ok) {
             let serverData = await res.json();
             if (serverData && serverData.patientsList) {
-                // إذا وجدنا بيانات بالسيرفر ندمجها أو نعتمدها إن كانت أحدث
                 db = serverData;
                 localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
                 refreshAllUIs();
@@ -62,7 +64,6 @@ async function fetchServerDataInitial() {
     }
 }
 
-// دالة الحفظ والمزامنة المباشرة مع السيرفر والذاكرة المحلية
 function saveAndSync() {
     localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
     
@@ -75,7 +76,6 @@ function saveAndSync() {
     refreshAllUIs();
 }
 
-// عند عودة الإنترنت، إعادة الاتصال وإرسال البيانات للسيرفر فوراً
 window.addEventListener('online', () => {
     showToast("✓ عاد الاتصال بالإنترنت! جاري مزامنة البيانات...");
     if (socket) {
@@ -188,15 +188,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const procInput = document.getElementById('examProcedure');
     if (diagInput) {
         diagInput.value = localStorage.getItem('tempExamDiagnosis') || '';
-        diagInput.addEventListener('input', () => {
-            localStorage.setItem('tempExamDiagnosis', diagInput.value);
-        });
+        diagInput.addEventListener('input', () => { localStorage.setItem('tempExamDiagnosis', diagInput.value); });
     }
     if (procInput) {
         procInput.value = localStorage.getItem('tempExamProcedure') || '';
-        procInput.addEventListener('input', () => {
-            localStorage.setItem('tempExamProcedure', procInput.value);
-        });
+        procInput.addEventListener('input', () => { localStorage.setItem('tempExamProcedure', procInput.value); });
     }
     
     const savedSession = JSON.parse(localStorage.getItem('clinicSession'));
@@ -690,12 +686,25 @@ function showToast(msg) {
     setTimeout(() => t.classList.add('opacity-0', 'pointer-events-none'), 3000);
 }
 
+// دوال إدارة ورفع الملفات الطبية
+function handlePatientInitFileSelection(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    currentPatientInitFileName = file.name;
+    const reader = new FileReader();
+    reader.onload = function(e) { currentPatientInitFileBase64 = e.target.result; };
+    reader.readAsDataURL(file);
+    document.getElementById('patInitFileLabel').innerText = `✓ تم اختيار: ${file.name}`;
+}
+
 function addPatientSimpleModal(e) {
     e.preventDefault();
     let idCard = document.getElementById('modalPatID').value.trim();
     let name = document.getElementById('modalPatName').value.trim();
     let dob = document.getElementById('modalPatDob').value;
     let phone = document.getElementById('modalPatPhone').value;
+    let initType = document.getElementById('modalPatInitFileType').value;
+    let initTitle = document.getElementById('modalPatInitFileTitle').value.trim();
 
     let existing = db.patientsList.find(item => (item.idCard || '').trim() === idCard);
     if (existing) {
@@ -703,11 +712,81 @@ function addPatientSimpleModal(e) {
         return;
     }
 
-    db.patientsList.push({ name, idCard, dob, phone, visitsCount: 1, conditionsText: "مسجل جديد", medicalHistory: { labs: [], imaging: [] } });
+    let newPatientObj = {
+        name, idCard, dob, phone,
+        visitsCount: 1,
+        conditionsText: "مسجل جديد",
+        medicalHistory: { labs: [], imaging: [] }
+    };
+
+    if (currentPatientInitFileBase64 && initTitle) {
+        let recordObj = {
+            date: new Date().toISOString().split('T')[0],
+            title: initTitle,
+            result: "ملف مرفق عند التسجيل الأولي",
+            fileData: currentPatientInitFileBase64,
+            fileName: currentPatientInitFileName
+        };
+        if (initType === 'lab') newPatientObj.medicalHistory.labs.push(recordObj);
+        else newPatientObj.medicalHistory.imaging.push(recordObj);
+    }
+
+    db.patientsList.push(newPatientObj);
     saveAndSync();
     closeModal('simple');
-    showToast("تم تسجيل المريض بنجاح!");
-    logAuditAction(`تسجيل مريض: ${name} (ID: ${idCard})`);
+    
+    currentPatientInitFileBase64 = null;
+    currentPatientInitFileName = "";
+    document.getElementById('patInitFileLabel').innerText = "إرفاق تحليل أو صورة أشعة أولية (اختياري)";
+
+    showToast("تم تسجيل المريض وملفه الطبي بنجاح!");
+    logAuditAction(`تسجيل مريض جديد: ${name}`);
+}
+
+function openAddExtraFileModal(patientName) {
+    selectedPatientForExtraFile = patientName;
+    document.getElementById('extraFilePatientName').value = patientName;
+    document.getElementById('extraFileTitle').value = '';
+    document.getElementById('extraFileResult').value = '';
+    extraFileBase64 = null;
+    extraFileName = "";
+    document.getElementById('extraFilePreviewName').innerText = "اضغط لاختيار الملف الطبي";
+    document.getElementById('modal-add-patient-file').classList.remove('hidden');
+}
+
+function handleExtraFileSelection(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    extraFileName = file.name;
+    const reader = new FileReader();
+    reader.onload = function(e) { extraFileBase64 = e.target.result; };
+    reader.readAsDataURL(file);
+    document.getElementById('extraFilePreviewName').innerText = `✓ تم اختيار: ${file.name}`;
+}
+
+function saveExtraPatientFile(e) {
+    e.preventDefault();
+    const type = document.getElementById('extraFileType').value;
+    const title = document.getElementById('extraFileTitle').value.trim();
+    const result = document.getElementById('extraFileResult').value.trim() || "مرفق طبي إضافي";
+
+    let patient = db.patientsList.find(p => p.name.trim().toLowerCase() === selectedPatientForExtraFile.toLowerCase());
+    if (patient) {
+        if (!patient.medicalHistory) patient.medicalHistory = { labs: [], imaging: [] };
+        let recordObj = {
+            date: new Date().toISOString().split('T')[0],
+            title, result,
+            fileData: extraFileBase64,
+            fileName: extraFileName
+        };
+        if (type === 'lab') patient.medicalHistory.labs.unshift(recordObj);
+        else patient.medicalHistory.imaging.unshift(recordObj);
+
+        saveAndSync();
+        closeModal('add-patient-file');
+        showToast("تم إرفاق الملف الطبي بنجاح للمريض!");
+        logAuditAction(`إضافة ملف طبي (${title}) للمريض: ${selectedPatientForExtraFile}`);
+    }
 }
 
 function loadPatients() {
@@ -716,10 +795,11 @@ function loadPatients() {
     tb.innerHTML = '';
     db.patientsList.forEach((p, i) => {
         let editControls = currentUserRole === 'admin' ? `
+            <button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2 py-1.5 rounded-xl text-xs font-bold" title="إضافة تحليل أو أشعة"><i class="fa-solid fa-file-medical"></i> + ملف</button>
             <button id="p-edit-btn-${i}" onclick="enablePatientEdit(${i})" class="bg-blue-50 border text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-pen-to-square"></i> تعديل</button>
             <button id="p-save-btn-${i}" onclick="savePatientEdit(${i})" class="hidden bg-emerald-50 border text-emerald-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-floppy-disk"></i> حفظ</button>
             <button onclick="deletePatient(${i})" class="text-red-500 font-bold px-1.5"><i class="fa-solid fa-trash"></i></button>
-        ` : `<span class="text-xs text-gray-400 font-bold">عرض فقط</span>`;
+        ` : `<button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-file-medical"></i> + ملف</button>`;
 
         tb.innerHTML += `
             <tr id="pat-row-${i}">
@@ -753,7 +833,7 @@ function savePatientEdit(i) {
         db.patientsList[i].phone = document.getElementById(`p-phone-${i}`).value;
         saveAndSync();
         showToast("تم الحفظ!");
-        logAuditAction(`تعديل بيانات المريض رقم ${i}`);
+        logAuditAction(`تعديل بيانات مريض رقم ${i}`);
     }
 }
 
@@ -897,6 +977,7 @@ function openModal(type) {
 function closeModal(id) {
     if (id === 'invoice') document.getElementById('modal-invoice').classList.add('hidden');
     else if (id === 'medical-record') document.getElementById('modal-medical-record').classList.add('hidden');
+    else if (id === 'add-patient-file') document.getElementById('modal-add-patient-file').classList.add('hidden');
     else document.getElementById('modal-simple').classList.add('hidden');
 }
 
@@ -1101,11 +1182,17 @@ function renderPatientMedicalHistoryInExam(patientName) {
     const labs = (patient && patient.medicalHistory && patient.medicalHistory.labs) || [];
     const imaging = (patient && patient.medicalHistory && patient.medicalHistory.imaging) || [];
 
-    if (labs.length === 0) labsBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد تحاليل</p>`;
-    else labs.forEach(l => labsBox.innerHTML += `<div class="p-2.5 rounded-2xl border bg-emerald-50 text-xs shadow-sm"><b class="text-emerald-900">${l.title}</b> (${l.date}): ${l.result}</div>`);
+    if (labs.length === 0) labsBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد تحاليل مسجلة</p>`;
+    else labs.forEach(l => {
+        let fileBtn = l.fileData ? `<a href="${l.fileData}" download="${l.fileName || 'lab-file'}" target="_blank" class="text-blue-600 font-bold underline block mt-1"><i class="fa-solid fa-download"></i> معاينة / تحميل الملف (${l.fileName || 'مرفق'})</a>` : '';
+        labsBox.innerHTML += `<div class="p-2.5 rounded-2xl border bg-emerald-50 text-xs shadow-sm"><b class="text-emerald-900">${l.title}</b> (${l.date})<p class="text-gray-600 mt-0.5">${l.result}</p>${fileBtn}</div>`;
+    });
 
-    if (imaging.length === 0) imgBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد أشعة</p>`;
-    else imaging.forEach(img => imgBox.innerHTML += `<div class="p-2.5 rounded-2xl border bg-blue-50 text-xs shadow-sm"><b class="text-blue-900">${img.title}</b> (${img.date}): ${img.result}</div>`);
+    if (imaging.length === 0) imgBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد صور أشعة مسجلة</p>`;
+    else imaging.forEach(img => {
+        let fileBtn = img.fileData ? `<a href="${img.fileData}" download="${img.fileName || 'imaging-file'}" target="_blank" class="text-blue-600 font-bold underline block mt-1"><i class="fa-solid fa-download"></i> معاينة / تحميل صورة الأشعة</a>` : '';
+        imgBox.innerHTML += `<div class="p-2.5 rounded-2xl border bg-blue-50 text-xs shadow-sm"><b class="text-blue-900">${img.title}</b> (${img.date})<p class="text-gray-600 mt-0.5">${img.result}</p>${fileBtn}</div>`;
+    });
 }
 
 function openAddMedicalRecordModal() {
