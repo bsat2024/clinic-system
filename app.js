@@ -9,7 +9,6 @@ let currentPrescriptionItems = [];
 
 let currentAllowedTabs = ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'];
 
-// قاعدة البيانات الموضعية المزامنة
 let db = {
     staffList: [],
     patientsList: [],
@@ -25,7 +24,6 @@ let socket = null;
 try {
     socket = io(window.location.origin, { reconnectionAttempts: 5 });
     
-    // استقبال التحديثات الفورية من السيرفر وبثها للواجهات
     socket.on('sync-clinic-data', (serverData) => {
         db = serverData;
         refreshAllUIs();
@@ -36,7 +34,6 @@ try {
     });
 } catch(e) {}
 
-// جلب البيانات المركزية من السيرفر عند الإقلاع
 async function fetchServerData() {
     try {
         let res = await fetch(window.location.origin + '/api/data');
@@ -47,7 +44,6 @@ async function fetchServerData() {
     }
 }
 
-// دالة لحفظ وبث التحديثات للسيرفر ولكافة الأجهزة المتصلة
 function saveAndSync() {
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', db);
@@ -494,6 +490,13 @@ function confirmFinishExamination(e) {
     closeExamPricingModal();
     logAuditAction(`إنهاء فحص وتخريج المريض وإصدار فاتورة: ${currentPatientInExam.name}`);
     
+    // تفريغ وتصفير حقول غرفة الفحص الإكلينيكي والوصفات الطبية بالكامل
+    document.getElementById('examDiagnosis').value = '';
+    document.getElementById('examProcedure').value = '';
+    document.getElementById('examPrescriptionText').value = '';
+    currentPrescriptionItems = [];
+    renderCurrentPrescriptionTable();
+
     if (db.triageQueue.length > 0) {
         let nextPatient = db.triageQueue[0];
         triggerNurseNextPatientAlert(nextPatient.name, nextPatient.doctor);
@@ -502,7 +505,8 @@ function confirmFinishExamination(e) {
     currentPatientInExam = null;
     localStorage.removeItem('currentPatientInExam');
     saveAndSync();
-    showToast("تم تخريج المريض وإصدار الفاتورة الشاملة بنجاح!");
+    loadCurrentExamCard();
+    showToast("تم تخريج المريض وتفريغ غرفة الفحص وإصدار الفاتورة بنجاح!");
 }
 
 function populateTriageDoctorDropdown() {
