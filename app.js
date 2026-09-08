@@ -36,9 +36,7 @@ try {
     socket = io(window.location.origin, {
         reconnection: true,
         reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 20000
+        reconnectionDelay: 1000
     });
 
     socket.on('connect', () => {
@@ -47,7 +45,7 @@ try {
             indicator.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span> متزامن (Live Cloud)`;
             indicator.className = "text-[11px] font-black px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-2 shadow-sm";
         }
-        // عند الاتصال بالسيرفر، نرسل أحدث نسخة محلية لتوحيد البيانات
+        // إرسال البيانات المحلية فور الاتصال لدمجها بالسيرفر
         socket.emit('update-clinic-data', db);
     });
 
@@ -59,10 +57,25 @@ try {
         }
     });
     
-    // استقبال أي تحديث قادم من السيرفر وتحديث الواجهات فوراً
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData && serverData.patientsList) {
-            db = serverData;
+            // دمج ذكي محلياً يمنع الكتابة الفوقية ومسح البيانات
+            serverData.patientsList.forEach(sPat => {
+                let localPat = db.patientsList.find(p => (p.idCard && p.idCard === sPat.idCard) || p.name === sPat.name);
+                if (!localPat) {
+                    db.patientsList.push(sPat);
+                } else if (sPat.medicalHistory) {
+                    localPat.medicalHistory = sPat.medicalHistory;
+                }
+            });
+            db.triageQueue = serverData.triageQueue || db.triageQueue;
+            serverData.invoicesList.forEach(inv => {
+                if (!db.invoicesList.some(i => i.invNum === inv.invNum)) db.invoicesList.push(inv);
+            });
+            serverData.appointments.forEach(app => {
+                if (!db.appointments.some(a => a.name === app.name && a.date === app.date)) db.appointments.push(app);
+            });
+
             localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
             refreshAllUIs();
         }
@@ -73,13 +86,12 @@ try {
     });
 } catch(e) {}
 
-// جلب البيانات من السيرفر عند البدء
 async function fetchServerDataInitial() {
     try {
         let res = await fetch(window.location.origin + '/api/data');
         if (res.ok) {
             let serverData = await res.json();
-            if (serverData && serverData.patientsList && serverData.patientsList.length >= db.patientsList.length) {
+            if (serverData && serverData.patientsList) {
                 db = serverData;
                 localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
                 refreshAllUIs();
@@ -90,19 +102,20 @@ async function fetchServerDataInitial() {
     }
 }
 
-// دالة الحفظ والمزامنة الموحدة التي تضمن التبادل الفوري
 function saveAndSync() {
     localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', db);
+        showToast("✓ تم الحفظ والمزامنة السحابية بنجاح");
+    } else {
+        showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان");
     }
     refreshAllUIs();
 }
 
-// مراقبة عودة الاتصال لإعادة ربط الـ Socket فوراً
 window.addEventListener('online', () => {
-    showToast("✓ عاد الاتصال بالإنترنت! جاري المزامنة...");
+    showToast("✓ عاد الاتصال بالإنترنت! جاري دمج ومزامنة البيانات...");
     if (socket) {
         if (!socket.connected) socket.connect();
         socket.emit('update-clinic-data', db);

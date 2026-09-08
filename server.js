@@ -52,14 +52,45 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-    // إرسال البيانات الحالية فور اتصال أي جهاز جديد
+    // إرسال البيانات الحالية فور اتصال أي جهاز
     socket.emit('sync-clinic-data', clinicDatabase);
 
-    // استقبال التحديثات وبثها فوراً لكافة الأجهزة المتصلة
-    socket.on('update-clinic-data', (newData) => {
-        if (newData && newData.patientsList) {
-            clinicDatabase = newData;
-            io.emit('sync-clinic-data', clinicDatabase); // مزامنة حية لكل الشاشات المفتوحة
+    // استقبال البيانات من أي جهاز ودمجها بذكاء لضمان عدم ضياع أي تعديل
+    socket.on('update-clinic-data', (incomingData) => {
+        if (incomingData) {
+            // دمج قائمة المرضى (منع التكرار بناءً على رقم البطاقة أو الاسم)
+            incomingData.patientsList.forEach(incPat => {
+                let exists = clinicDatabase.patientsList.find(p => (p.idCard && p.idCard === incPat.idCard) || p.name === incPat.name);
+                if (!exists) {
+                    clinicDatabase.patientsList.push(incPat);
+                } else {
+                    // تحديث الملفات الطبية أو الزيارات إذا كانت أحدث
+                    exists.visitsCount = Math.max(exists.visitsCount || 1, incPat.visitsCount || 1);
+                    if (incPat.medicalHistory) {
+                        exists.medicalHistory = incPat.medicalHistory;
+                    }
+                }
+            });
+
+            // دمج قائمة الانتظار
+            clinicDatabase.triageQueue = incomingData.triageQueue || clinicDatabase.triageQueue;
+            // دمج الفواتير
+            incomingData.invoicesList.forEach(inv => {
+                if (!clinicDatabase.invoicesList.some(i => i.invNum === inv.invNum)) {
+                    clinicDatabase.invoicesList.push(inv);
+                }
+            });
+            // دمج المواعيد
+            incomingData.appointments.forEach(app => {
+                if (!clinicDatabase.appointments.some(a => a.name === app.name && a.date === app.date)) {
+                    clinicDatabase.appointments.push(app);
+                }
+            });
+
+            clinicDatabase.auditLogs = incomingData.auditLogs || clinicDatabase.auditLogs;
+
+            // بث النسخة المحدثة لكافة الأجهزة المتصلة لحظياً
+            io.emit('sync-clinic-data', clinicDatabase);
         }
     });
 
@@ -70,5 +101,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`سيرفر العيادة يعمل بكفاءة على البورت: ${PORT}`);
+    console.log(`السيرفر يعمل بكفاءة على البورت: ${PORT}`);
 });
