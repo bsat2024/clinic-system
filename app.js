@@ -33,10 +33,35 @@ let db = JSON.parse(localStorage.getItem('clinicOfflineDB')) || {
 
 let socket = null;
 try {
-    socket = io(window.location.origin, { reconnectionAttempts: 5, reconnectionDelay: 1000 });
+    socket = io(window.location.origin, {
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000
+    });
+
+    socket.on('connect', () => {
+        let indicator = document.getElementById('networkStatusIndicator');
+        if(indicator) {
+            indicator.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span> متزامن (Live Cloud)`;
+            indicator.className = "text-[11px] font-black px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-2 shadow-sm";
+        }
+        // عند الاتصال بالسيرفر، نرسل أحدث نسخة محلية لتوحيد البيانات
+        socket.emit('update-clinic-data', db);
+    });
+
+    socket.on('disconnect', () => {
+        let indicator = document.getElementById('networkStatusIndicator');
+        if(indicator) {
+            indicator.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> يعمل محلياً (Offline)`;
+            indicator.className = "text-[11px] font-black px-3.5 py-1.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-2 shadow-sm";
+        }
+    });
     
+    // استقبال أي تحديث قادم من السيرفر وتحديث الواجهات فوراً
     socket.on('sync-clinic-data', (serverData) => {
-        if (serverData) {
+        if (serverData && serverData.patientsList) {
             db = serverData;
             localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
             refreshAllUIs();
@@ -48,36 +73,36 @@ try {
     });
 } catch(e) {}
 
+// جلب البيانات من السيرفر عند البدء
 async function fetchServerDataInitial() {
     try {
         let res = await fetch(window.location.origin + '/api/data');
         if (res.ok) {
             let serverData = await res.json();
-            if (serverData && serverData.patientsList) {
+            if (serverData && serverData.patientsList && serverData.patientsList.length >= db.patientsList.length) {
                 db = serverData;
                 localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
                 refreshAllUIs();
             }
         }
     } catch(err) {
-        console.log("العمل بالوضع المحلي (Offline Mode)");
+        console.log("العمل بالوضع المحلي");
     }
 }
 
+// دالة الحفظ والمزامنة الموحدة التي تضمن التبادل الفوري
 function saveAndSync() {
     localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', db);
-        showToast("✓ تم الحفظ والمزامنة السحابية بنجاح");
-    } else {
-        showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز");
     }
     refreshAllUIs();
 }
 
+// مراقبة عودة الاتصال لإعادة ربط الـ Socket فوراً
 window.addEventListener('online', () => {
-    showToast("✓ عاد الاتصال بالإنترنت! جاري مزامنة البيانات...");
+    showToast("✓ عاد الاتصال بالإنترنت! جاري المزامنة...");
     if (socket) {
         if (!socket.connected) socket.connect();
         socket.emit('update-clinic-data', db);
@@ -799,7 +824,7 @@ function loadPatients() {
             <button id="p-edit-btn-${i}" onclick="enablePatientEdit(${i})" class="bg-blue-50 border text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-pen-to-square"></i> تعديل</button>
             <button id="p-save-btn-${i}" onclick="savePatientEdit(${i})" class="hidden bg-emerald-50 border text-emerald-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-floppy-disk"></i> حفظ</button>
             <button onclick="deletePatient(${i})" class="text-red-500 font-bold px-1.5"><i class="fa-solid fa-trash"></i></button>
-        ` : `<button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-file-medical"></i> + ملف</button>`;
+        ` : `<button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2 py-1.5 rounded-xl text-xs font-bold" title="إضافة تحليل أو أشعة"><i class="fa-solid fa-file-medical"></i> + ملف</button>`;
 
         tb.innerHTML += `
             <tr id="pat-row-${i}">

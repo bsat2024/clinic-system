@@ -46,13 +46,21 @@ app.use(express.static(path.join(__dirname)));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: { origin: "*", methods: ["GET", "POST"] }
+    cors: { origin: "*", methods: ["GET", "POST"] },
+    pingTimeout: 60000,
+    pingInterval: 25000
 });
 
 io.on('connection', (socket) => {
+    // إرسال البيانات الحالية فور اتصال أي جهاز جديد
+    socket.emit('sync-clinic-data', clinicDatabase);
+
+    // استقبال التحديثات وبثها فوراً لكافة الأجهزة المتصلة
     socket.on('update-clinic-data', (newData) => {
-        clinicDatabase = newData;
-        io.emit('sync-clinic-data', clinicDatabase);
+        if (newData && newData.patientsList) {
+            clinicDatabase = newData;
+            io.emit('sync-clinic-data', clinicDatabase); // مزامنة حية لكل الشاشات المفتوحة
+        }
     });
 
     socket.on('doctor-call-patient', (data) => {
