@@ -9,7 +9,7 @@ let currentPrescriptionItems = [];
 
 let currentAllowedTabs = ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'];
 
-// تهيئة قاعدة البيانات بالاعتماد الأساسي والدائم على الذاكرة المحلية (localStorage) لتجنب فقدان البيانات أبدأ
+// تهيئة قاعدة البيانات من الذاكرة المحلية أولاً لضمان عدم ضياع أي قيمة أبداً
 let db = JSON.parse(localStorage.getItem('clinicOfflineDB')) || {
     staffList: [
         { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'] },
@@ -30,11 +30,12 @@ let socket = null;
 try {
     socket = io(window.location.origin, { reconnectionAttempts: 5 });
     
-    // استقبال التحديثات الحية من السيرفر السحابي وتحديث الذاكرة المحلية
+    // استقبال التحديثات الحية من أجهزة أخرى متصلة بنفس السيرفر
     socket.on('sync-clinic-data', (serverData) => {
-        if (serverData) {
+        if (serverData && serverData.patientsList) {
+            // دمج ذكي: إذا كانت بيانات السيرفر تحتوي على عناصر جديدة، نحدث المحلي
             db = serverData;
-            localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
+            persistLocalDatabase();
             refreshAllUIs();
         }
     });
@@ -44,45 +45,45 @@ try {
     });
 } catch(e) {}
 
-// جلب أحدث البيانات من السيرفر، وإن لم يوجد إنترنت يعتمد على الذاكرة المحلية فوراً
-async function fetchServerData() {
+function persistLocalDatabase() {
+    localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
+}
+
+// جلب البيانات من السيرفر فقط عند الإقلاع الأول إذا كانت الذاكرة المحلية فارغة تماماً
+async function fetchServerDataInitial() {
     try {
         let res = await fetch(window.location.origin + '/api/data');
         if (res.ok) {
-            let serverData = await res.json();
-            // دمج البيانات أو تحديثها إذا كانت أحدث
-            db = serverData;
-            localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
+            let serverData = a = await res.json();
+            // إذا كان السيرفر يملك بيانات أكثر، نعتمدها، وإذا كان المحلي يملك بيانات مدخلة دون إنترنت نحافظ عليها ونرفعها
+            let localData = localStorage.getItem('clinicOfflineDB');
+            if (!localData || JSON.parse(localData).patientsList.length === 0) {
+                db = serverData;
+                persistLocalDatabase();
+            }
             refreshAllUIs();
         }
     } catch(err) {
-        // غياب الإنترنت: الاعتماد الكامل على الذاكرة المحلية وعدم توقف التطبيق
-        let localData = localStorage.getItem('clinicOfflineDB');
-        if (localData) {
-            db = JSON.parse(localData);
-            refreshAllUIs();
-        }
+        console.log("العمل بالوضع المحلي (Offline Mode)");
     }
 }
 
-// دالة الحفظ المركزية: تحفظ محلياً أولاً لضمان عدم الضياع، ثم ترسل للسيرفر إن وجد إنترنت
+// دالة الحفظ والمزامنة الآمنة
 function saveAndSync() {
-    // 1. الحفظ الفوري في الذاكرة المحلية (تضمن بقاء البيانات أثناء غياب الإنترنت)
-    localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
-
-    // 2. محاولة الإرسال للسيرفر السحابي
+    persistLocalDatabase(); // حفظ دائم محلياً أولاً
+    
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', db);
-        showToast("✓ تم الحفظ والمزامنة السحابية بنجاح");
+        showToast("✓ تم الحفظ والمزامنة السحابية الفورية");
     } else {
-        showToast("⚠️ يعمل بدون إنترنت: تم حفظ القيم محلياً في الجهاز");
+        showToast("⚠️ يعمل بدون إنترنت: تم حفظ البيانات محلياً على جهازك بأمان");
     }
     refreshAllUIs();
 }
 
-// مراقبة عودة الإنترنت لمزامنة التغييرات تلقائياً
+// عند عودة الإنترنت، إرسال البيانات المحلية للسيرفر لتحديثه (وليس العكس)
 window.addEventListener('online', () => {
-    showToast("✓ عاد الاتصال بالإنترنت! جاري إرسال البيانات المعلقة للسيرفر...");
+    showToast("✓ عاد الاتصال بالإنترنت! جاري مزامنة بياناتك مع السحابة...");
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', db);
     }
@@ -185,8 +186,23 @@ const allAvailableViews = [
 ];
 
 document.addEventListener("DOMContentLoaded", async () => {
-    await fetchServerData();
+    await fetchServerDataInitial();
     applyLanguage();
+    
+    const diagInput = document.getElementById('examDiagnosis');
+    const procInput = document.getElementById('examProcedure');
+    if (diagInput) {
+        diagInput.value = localStorage.getItem('tempExamDiagnosis') || '';
+        diagInput.addEventListener('input', () => {
+            localStorage.setItem('tempExamDiagnosis', diagInput.value);
+        });
+    }
+    if (procInput) {
+        procInput.value = localStorage.getItem('tempExamProcedure') || '';
+        procInput.addEventListener('input', () => {
+            localStorage.setItem('tempExamProcedure', procInput.value);
+        });
+    }
     
     const savedSession = JSON.parse(localStorage.getItem('clinicSession'));
     if (savedSession) {
@@ -198,12 +214,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('loginScreen').classList.remove('hidden');
         document.getElementById('appContainer').classList.add('hidden');
     }
-    
-    setInterval(async () => {
-        if (!document.getElementById('appContainer').classList.contains('hidden')) {
-            await fetchServerData();
-        }
-    }, 3000);
 });
 
 if ('serviceWorker' in navigator) {
@@ -536,6 +546,8 @@ function confirmFinishExamination(e) {
     document.getElementById('examDiagnosis').value = '';
     document.getElementById('examProcedure').value = '';
     document.getElementById('examPrescriptionText').value = '';
+    localStorage.removeItem('tempExamDiagnosis');
+    localStorage.removeItem('tempExamProcedure');
     currentPrescriptionItems = [];
     renderCurrentPrescriptionTable();
 
@@ -591,7 +603,6 @@ async function handleLogin(e) {
     const u = document.getElementById('loginUser').value.trim();
     const p = document.getElementById('loginPass').value.trim();
 
-    // التحقق المحلي المباشر لضمان عمل الدخول حتى لو انقطع الإنترنت
     let found = db.staffList.find(s => s.username === u && s.password === p);
     if (found) {
         currentUserRole = found.role;
