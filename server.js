@@ -8,7 +8,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// قاعدة بيانات مركزية مشتركة على السيرفر لكافة قوائم العيادة
 let clinicDatabase = {
     staffList: [
         { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'] },
@@ -25,7 +24,6 @@ let clinicDatabase = {
     auditLogs: []
 };
 
-// نقاط النهاية لجلب وتحديث البيانات مركزياً
 app.get('/api/data', (req, res) => {
     res.json(clinicDatabase);
 });
@@ -52,10 +50,9 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-    // استقبال أي تحديث للبيانات من أي جهاز وبثه لبقية الأجهزة فوراً
     socket.on('update-clinic-data', (newData) => {
         clinicDatabase = newData;
-        io.emit('sync-clinic-data', clinicDatabase); // مزامنة فورية لكل المفتوحين
+        io.emit('sync-clinic-data', clinicDatabase);
     });
 
     socket.on('doctor-call-patient', (data) => {
@@ -65,5 +62,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`السيرفر المركزي يعمل بكفاءة على البورت: ${PORT}`);
+    console.log(`سيرفر العيادة يعمل بكفاءة على البورت: ${PORT}`);
 });

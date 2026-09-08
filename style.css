@@ -8,6 +8,10 @@ body {
 html[dir="rtl"] #appContainer { flex-direction: row; }
 html[dir="ltr"] #appContainer { flex-direction: row-reverse; }
 
+main.space-y-6 {
+    padding-bottom: 6rem !important;
+}
+
 @media (max-width: 768px) {
     #appContainer {
         flex-direction: column !important;
@@ -36,20 +40,9 @@ html[dir="ltr"] #appContainer { flex-direction: row-reverse; }
 }
 #mainSidebar.sidebar-collapsed nav button {
     justify-content: center !important;
-    padding-left: 0.5rem !important;
-    padding-right: 0.5rem !important;
 }
 #mainSidebar.sidebar-collapsed #btnLogout {
     justify-content: center !important;
-}
-
-.user-active {
-    background-color: #e0f2fe !important;
-    border-right: 4px solid #0097b2 !important;
-}
-html[dir="ltr"] .user-active {
-    border-right: none !important;
-    border-left: 4px solid #0097b2 !important;
 }
 
 @keyframes pulseEmergency {

@@ -20,6 +20,8 @@ let db = {
     auditLogs: []
 };
 
+let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue')) || [];
+
 let socket = null;
 try {
     socket = io(window.location.origin, { reconnectionAttempts: 5 });
@@ -40,15 +42,35 @@ async function fetchServerData() {
         db = await res.json();
         refreshAllUIs();
     } catch(err) {
-        console.log("التعذر في الاتصال بالسيرفر المركزي");
+        console.log("العمل بالوضع المحلي المؤقت (Offline Mode)");
     }
 }
 
 function saveAndSync() {
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', db);
+        processOfflineQueue();
+    } else {
+        offlineQueue.push(db);
+        localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue));
+        showToast("⚠️ انقطع الاتصال! تم الحفظ محلياً وسيتم المزامنة عند عودة الإنترنت.");
     }
     refreshAllUIs();
+}
+
+window.addEventListener('online', () => {
+    showToast("✓ عاد الاتصال بالإنترنت! جاري المزامنة...");
+    processOfflineQueue();
+});
+
+function processOfflineQueue() {
+    if (socket && socket.connected && offlineQueue.length > 0) {
+        let latestData = offlineQueue[offlineQueue.length - 1];
+        socket.emit('update-clinic-data', latestData);
+        offlineQueue = [];
+        localStorage.removeItem('offlineQueue');
+        showToast("✓ تمت مزامنة البيانات مع السيرفر السحابي بنجاح!");
+    }
 }
 
 function refreshAllUIs() {
@@ -169,6 +191,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }, 2000);
 });
 
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW error:', err));
+    });
+}
+
 function logAuditAction(actionText) {
     db.auditLogs.unshift({ user: currentUsername, action: actionText, time: new Date().toLocaleString() });
     if (db.auditLogs.length > 50) db.auditLogs.pop();
@@ -209,12 +237,12 @@ function updateExamRiskIndicator(bp, sugar) {
 
     if (sys >= 16 || sVal >= 2.0) {
         riskLevel = "خطر مرتفع!";
-        desc = "تجاوزات حرجة في ضغط الدم أو سكر الدم تستدعي تدخلاً عاجلاً!";
+        desc = "تجاوزات حرجة في ضغط الدم أو سكر الدم!";
         bgClass = "bg-gradient-to-r from-rose-600 to-red-700";
         badgeClass = "bg-white text-rose-700";
     } else if (sys >= 14 || sVal >= 1.4) {
         riskLevel = "تنبيه متوسط";
-        desc = "ملاحظة ارتفاع طفيف يستوجب المراقبة الطبية والمتابعة المستمرة.";
+        desc = "ملاحظة ارتفاع طفيف يستوجب المراقبة الطبية.";
         bgClass = "bg-gradient-to-r from-amber-500 to-orange-600";
         badgeClass = "bg-white text-amber-700";
     }
@@ -490,7 +518,7 @@ function confirmFinishExamination(e) {
     closeExamPricingModal();
     logAuditAction(`إنهاء فحص وتخريج المريض وإصدار فاتورة: ${currentPatientInExam.name}`);
     
-    // تفريغ وتصفير حقول غرفة الفحص الإكلينيكي والوصفات الطبية بالكامل
+    // تفريغ وتصفير غرفة الفحص والوصفات الطبية تلقائياً
     document.getElementById('examDiagnosis').value = '';
     document.getElementById('examProcedure').value = '';
     document.getElementById('examPrescriptionText').value = '';
@@ -669,7 +697,7 @@ function addPatientSimpleModal(e) {
     saveAndSync();
     closeModal('simple');
     showToast("تم تسجيل المريض بنجاح!");
-    logAuditAction(`تسجيل مريض جديد من القائمة: ${name} (ID: ${idCard})`);
+    logAuditAction(`تسجيل مريض جديد: ${name} (ID: ${idCard})`);
 }
 
 function loadPatients() {
@@ -723,7 +751,7 @@ function deletePatient(i) {
     db.patientsList.splice(i, 1);
     saveAndSync();
     showToast("تم الحذف");
-    logAuditAction("حذف مريض من النظام");
+    logAuditAction("حذف مريض");
 }
 
 function renderStaffManagementTable() {
@@ -772,7 +800,7 @@ function saveStaffMemberEdit(i) {
         db.staffList[i].password = document.getElementById(`st-pass-${i}`).value;
         db.staffList[i].role = document.getElementById(`st-role-${i}`).value;
         saveAndSync();
-        showToast("تم حفظ تعديل المستخدم وكلمة المرور بنجاح!");
+        showToast("تم الحفظ بنجاح!");
         logAuditAction(`تعديل بيانات المستخدم: ${db.staffList[i].name}`);
     }
 }
@@ -782,7 +810,7 @@ function deleteStaffMember(i) {
     db.staffList.splice(i, 1);
     saveAndSync();
     showToast("تم الحذف");
-    logAuditAction("حذف مستخدم من النظام");
+    logAuditAction("حذف مستخدم");
 }
 
 function loadDoctors() {
@@ -799,18 +827,15 @@ function deleteDoctor(i) {
     db.doctorsList.splice(i, 1);
     saveAndSync();
     showToast("تم الحذف");
-    logAuditAction("حذف طبيب من النظام");
+    logAuditAction("حذف طبيب");
 }
 
 function loadAppointments() {
-    let tb1 = document.getElementById('dashAppointmentsTbody');
     let tb2 = document.getElementById('fullAppointmentsTbody');
-    if (tb1) tb1.innerHTML = '';
     if (tb2) tb2.innerHTML = '';
     db.appointments.forEach((item, i) => {
         let delBtn = currentUserRole === 'admin' ? `<button onclick="deleteAppointment(${i})" class="text-red-500 font-bold"><i class="fa-solid fa-trash"></i></button>` : '';
         let row = `<tr><td class="py-3 font-bold">${item.name}</td><td class="py-3 text-indigo-700">${item.doctor}</td><td class="py-3 text-gray-500">${item.date}</td><td class="py-3"><span class="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold">${item.status}</span></td><td class="py-3">${delBtn}</td></tr>`;
-        if (tb1) tb1.innerHTML += row;
         if (tb2) tb2.innerHTML += row;
     });
 }
@@ -837,7 +862,7 @@ function deleteInvoice(i) {
     db.invoicesList.splice(i, 1);
     saveAndSync();
     showToast("تم الحذف");
-    logAuditAction("حذف فاتورة مالية");
+    logAuditAction("حذف فاتورة");
 }
 
 function searchTable() {
@@ -871,7 +896,7 @@ function addDoctor(e) {
     saveAndSync();
     closeModal('simple');
     showToast("تم حفظ الطبيب");
-    logAuditAction(`إضافة طبيب جديد: ${document.getElementById('dName').value}`);
+    logAuditAction(`إضافة طبيب: ${document.getElementById('dName').value}`);
 }
 
 function addAppointment(e) {
@@ -880,7 +905,7 @@ function addAppointment(e) {
     saveAndSync();
     closeModal('simple');
     showToast("تم حجز الموعد");
-    logAuditAction(`حجز موعد للمريض: ${document.getElementById('aPat').value}`);
+    logAuditAction(`حجز موعد: ${document.getElementById('aPat').value}`);
 }
 
 function addStaff(e) {
@@ -889,7 +914,7 @@ function addStaff(e) {
     saveAndSync();
     closeModal('simple');
     showToast("تم إنشاء الموظف");
-    logAuditAction(`إنشاء حساب موظف جديد: ${document.getElementById('sName').value}`);
+    logAuditAction(`إنشاء موظف: ${document.getElementById('sName').value}`);
 }
 
 function saveInvoice(e) {
@@ -904,7 +929,7 @@ function saveInvoice(e) {
 }
 
 function loadClinicSettingsInputs() {
-    const stg = { clinicName: "عيادات الأسرة", specialty: "طب عام وجراحة", phone: "0790950784", address: "الدوار السابع الروابي", defaultFee: 30, taxRate: 0, currency: "$", workingHours: "08:00 AM - 04:00 PM", printSize: "A4", soundAlerts: "on" };
+    const stg = { clinicName: "عيادات الأسرة", specialty: "طب عام وجراحة", phone: "0790950784", address: "الروابي", defaultFee: 30, taxRate: 0, currency: "$", workingHours: "08:00 AM - 04:00 PM", printSize: "A4", soundAlerts: "on" };
     if (document.getElementById('stgClinicName')) document.getElementById('stgClinicName').value = stg.clinicName || '';
     if (document.getElementById('stgSpecialty')) document.getElementById('stgSpecialty').value = stg.specialty || '';
     if (document.getElementById('stgPhone')) document.getElementById('stgPhone').value = stg.phone || '';
@@ -919,9 +944,9 @@ function loadClinicSettingsInputs() {
 
 function saveClinicSettings(e) {
     e.preventDefault();
-    if (currentUserRole !== 'admin') { alert("تعديل الإعدادات متاح للمسؤول فقط!"); return; }
-    showToast("تم حفظ إعدادات النظام بنجاح!");
-    logAuditAction("تحديث إعدادات النظام العامة");
+    if (currentUserRole !== 'admin') { alert("للمسؤول فقط!"); return; }
+    showToast("تم حفظ الإعدادات بنجاح!");
+    logAuditAction("تحديث إعدادات النظام");
 }
 
 function exportDatabaseBackup() {
@@ -930,7 +955,7 @@ function exportDatabaseBackup() {
     dlAnchorElem.setAttribute("href", dataStr);
     dlAnchorElem.setAttribute("download", "clinic_backup_" + new Date().toISOString().split('T')[0] + ".json");
     dlAnchorElem.click();
-    showToast("تم تصدير النسخة الاحتياطية بنجاح");
+    showToast("تم تصدير النسخة الاحتياطية");
 }
 
 function importDatabaseBackup(event) {
@@ -943,7 +968,7 @@ function importDatabaseBackup(event) {
             saveAndSync();
             showToast("تم استرجاع النسخة الاحتياطية بنجاح!");
         } catch(err) {
-            alert("ملف النسخة الاحتياطية غير صالح!");
+            alert("الملف غير صالح!");
         }
     };
     reader.readAsText(file);
@@ -954,7 +979,7 @@ function addDrugToTemplateList() {
     let doses = document.getElementById('prescDoses').value;
     let time = document.getElementById('prescTime').value;
     let duration = document.getElementById('prescDuration').value.trim() || "5 أيام";
-    if (!drugName) { alert("يرجى كتابة اسم الدواء أولاً!"); return; }
+    if (!drugName) { alert("أدخل اسم الدواء أولاً!"); return; }
     currentPrescriptionItems.push({ drugName, doses, time, duration });
     document.getElementById('prescDrugName').value = '';
     document.getElementById('prescDuration').value = '';
@@ -994,7 +1019,7 @@ function removeDrugFromTemplate(index) {
 
 function saveAndDispensePrescription() {
     let prescText = document.getElementById('examPrescriptionText').value.trim();
-    if (!prescText) { alert("يرجى إضافة أدوية للوصفة أولاً!"); return; }
+    if (!prescText) { alert("أضف أدوية للوصفة أولاً!"); return; }
     let patName = currentPatientInExam ? currentPatientInExam.name : "مريض عام";
 
     db.prescriptionsList.unshift({
@@ -1005,8 +1030,8 @@ function saveAndDispensePrescription() {
         status: "تم الصرف"
     });
     saveAndSync();
-    showToast("تم حفظ وصرف الوصفة الطبية بنجاح!");
-    logAuditAction(`صرف وصفة طبية منظمة للمريض: ${patName}`);
+    showToast("تم صرف الوصفة الطبية بنجاح!");
+    logAuditAction(`صرف وصفة للمريض: ${patName}`);
     currentPrescriptionItems = [];
     renderCurrentPrescriptionTable();
 }
@@ -1015,24 +1040,24 @@ function printPrescriptionReport() {
     let patName = currentPatientInExam ? currentPatientInExam.name : "غير محدد";
     let diag = document.getElementById('examDiagnosis').value || "غير مدون";
     let proc = document.getElementById('examProcedure').value || "غير مدون";
-    let presc = document.getElementById('examPrescriptionText').value || "لا توجد أدوية مدرجة بالوصفة";
+    let presc = document.getElementById('examPrescriptionText').value || "لا توجد أدوية";
     
     let printWindow = window.open('', '_printWindow', 'width=800,height=600');
     printWindow.document.write(`
         <html dir="rtl">
-        <head><title>تقرير ووصفة طبية - عيادات الأسرة</title>
+        <head><title>تقرير ووصفة طبية</title>
         <style>body{font-family:Tahoma;padding:20px;color:#333;} h2{color:#0097b2;border-bottom:2px solid #0097b2;padding-bottom:10px;}</style>
         </head>
         <body onload="window.print();window.close()">
-            <h2>عيادات الأسرة الطبية | تقرير فحص المريض ووصفة الأدوية</h2>
+            <h2>عيادات الأسرة الطبية | تقرير الفحص والوصفة</h2>
             <p><b>اسم المريض:</b> ${patName}</p>
             <p><b>التاريخ:</b> ${new Date().toLocaleDateString()}</p>
             <hr/>
-            <p><b>التشخيص الإكلينيكي:</b><br/>${diag}</p>
-            <p><b>الإجراءات الطبية:</b><br/>${proc}</p>
-            <p><b>الوصفة الطبية (الأدوية الموصوفة وصرفها):</b><br/>${presc.replace(/\n/g, '<br/>')}</p>
-            <br/><br/><br/>
-            <div style="text-align: left;"><b>ختم وتوقيع الطبيب المعالج</b></div>
+            <p><b>التشخيص:</b><br/>${diag}</p>
+            <p><b>الإجراءات:</b><br/>${proc}</p>
+            <p><b>الوصفة الطبية:</b><br/>${presc.replace(/\n/g, '<br/>')}</p>
+            <br/><br/>
+            <div style="text-align: left;"><b>ختم الطبيب المعالج</b></div>
         </body>
         </html>
     `);
@@ -1069,7 +1094,7 @@ function renderPatientMedicalHistoryInExam(patientName) {
     if (labs.length === 0) labsBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد تحاليل</p>`;
     else labs.forEach(l => labsBox.innerHTML += `<div class="p-2.5 rounded-2xl border bg-emerald-50 text-xs shadow-sm"><b class="text-emerald-900">${l.title}</b> (${l.date}): ${l.result}</div>`);
 
-    if (imaging.length === 0) imgBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد أشعة أو سكانير</p>`;
+    if (imaging.length === 0) imgBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد أشعة</p>`;
     else imaging.forEach(img => imgBox.innerHTML += `<div class="p-2.5 rounded-2xl border bg-blue-50 text-xs shadow-sm"><b class="text-blue-900">${img.title}</b> (${img.date}): ${img.result}</div>`);
 }
 
@@ -1104,8 +1129,8 @@ function savePatientMedicalRecordWithFile(e) {
 }
 
 function resetClinicData() {
-    if (currentUserRole !== 'admin') { alert("تصفير بيانات العيادة مخصص للمسؤول فقط!"); return; }
-    let conf = confirm("تحذير: هل أنت متأكد من رغبتك في تصفير معطيات العيادة؟");
+    if (currentUserRole !== 'admin') { alert("للمسؤول فقط!"); return; }
+    let conf = confirm("تحذير: هل أنت متأكد من مسح وتصفير معطيات العيادة؟");
     if (conf) {
         db.patientsList = [];
         db.appointments = [];
