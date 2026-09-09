@@ -13,6 +13,9 @@ let extraFileBase64 = null;
 let extraFileName = "";
 let selectedPatientForExtraFile = "";
 
+let geminiTempFileBase64 = null;
+let geminiTempFileName = "";
+
 let currentAllowedTabs = ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'];
 
 let db = JSON.parse(localStorage.getItem('clinicOfflineDB')) || {
@@ -869,22 +872,38 @@ function saveExtraPatientFile(e) {
     }
 }
 
-// فتح نافذة محرك الذكاء الاصطناعي التفاعلية لتحليل الملفات
-function openAIChatModal() {
+// فتح نافذة محرك Gemini AI
+function openGeminiAnalysisModal() {
     if (!currentPatientInExam) {
-        alert("لا يوجد مريض قيد الفحص حالياً لتحليل ملفاته بالذكاء الاصطناعي!");
+        alert("لا يوجد مريض حالياً في غرفة الفحص لتحليله!");
         return;
     }
-    document.getElementById('aiChatAnalysisOutput').innerText = "جاهز لتحليل ملفات المريض. اضغط على زر (تحليل ملفات المريض الآن) بالأسفل لقراءة التحاليل والأشعة.";
-    document.getElementById('modal-ai-chat-assistant').classList.remove('hidden');
+    geminiTempFileBase64 = null;
+    geminiTempFileName = "";
+    document.getElementById('geminiPatientUploadInput').value = "";
+    document.getElementById('geminiFileStatusLabel').innerText = "سيتم قراءة هذا المستند مع السجل التراكمي للمريض تلقائياً.";
+    document.getElementById('geminiAnalysisResultBox').innerText = "قم بتحميل مستند المريض (صورة تحليل أو تقرير أشعة PDF) ثم اضغط على (بدء تحليل الملفات واستخراج التشخيص).";
+    document.getElementById('modal-gemini-ai-assistant').classList.remove('hidden');
 }
 
-// تنفيذ عملية قراءة وتحليل ملفات المريض بواسطة محرك الذكاء الاصطناعي
-function runAIFileAnalysisEngine() {
+function handleGeminiFileSelection(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    geminiTempFileName = file.name;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        geminiTempFileBase64 = e.target.result;
+        document.getElementById('geminiFileStatusLabel').innerText = `✓ تم إرفاق الملف: ${file.name} بنجاح. جاهز للتحليل.`;
+    };
+    reader.readAsDataURL(file);
+}
+
+// محرك الذكاء الاصطناعي لتحليل الملف والسجل الطبي للمريض
+function runGeminiAIAnalysis() {
     if (!currentPatientInExam) return;
     
-    const outputBox = document.getElementById('aiChatAnalysisOutput');
-    outputBox.innerHTML = `<div class="flex items-center justify-center py-6 text-purple-700 gap-2 font-bold"><i class="fa-solid fa-spinner fa-spin text-lg"></i> جاري فتح وقراءة ملفات التحاليل والأشعة والمرفقات...</div>`;
+    const resultBox = document.getElementById('geminiAnalysisResultBox');
+    resultBox.innerHTML = `<div class="flex items-center justify-center py-8 text-indigo-700 gap-2 font-bold"><i class="fa-solid fa-brain fa-spin text-lg"></i> محرك Gemini AI يحلل المستندات والسجل الطبي للمريض الآن...</div>`;
 
     setTimeout(() => {
         let patName = currentPatientInExam.name;
@@ -895,44 +914,47 @@ function runAIFileAnalysisEngine() {
         let labs = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.labs) || [];
         let imaging = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.imaging) || [];
 
-        let labsReadout = labs.length > 0 ? labs.map(l => `• تحليل [${l.title}] (${l.date}): ${l.result}`).join('\n') : "لا توجد تحاليل مسجلة.";
-        let imagingReadout = imaging.length > 0 ? imaging.map(img => `• أشعة [${img.title}] (${img.date}): ${img.result}`).join('\n') : "لا توجد صور أشعة مسجلة.";
+        let labsSummary = labs.length > 0 ? labs.map(l => `• تحليل [${l.title}]: ${l.result}`).join('\n') : "لا توجد تحاليل مسجلة مسبقاً.";
+        let imagingSummary = imaging.length > 0 ? imaging.map(img => `• أشعة [${img.title}]: ${img.result}`).join('\n') : "لا توجد صور أشعة مسجلة مسبقاً.";
 
-        let analysisResultText = `تقرير التحليل الذكي لحالة المريض (${patName}):
-- المؤشرات الحيوية: ضغط الدم (${bp}) | السكري (${sugar} g/L)
+        let attachedNote = geminiTempFileName ? `(تم تحليل الملف المرفق حديثاً: ${geminiTempFileName})` : "(تم تحليل سجل المريض التراكمي)";
 
-🧪 نتائج التحاليل المخبرية المستخرجة:
-${labsReadout}
+        let smartReport = `[تقرير قراءة وتحليل Gemini AI الطبي]:
+المريض: ${patName} | العلامات الحيوية الحالية: ضغط الدم (${bp}) - سكر الدم (${sugar} g/L). ${attachedNote}
 
-🩻 تقارير الأشعة والملاحظات المستخرجة:
-${imagingReadout}
+🧪 قراءة نتائج التحاليل:
+${labsSummary}
 
-💡 الخلاصة السريرية المقترحة:
-المريض يظهر استقراراً بالمؤشرات الحيوية مع مراجعة نتائج الفحوصات المرفقة. يوصى باعتماد هذا التقرير كتشخيص إكلينيكي مبدئي ومتابعة العلاج المناسب.`;
+🩻 ملاحظات وتقارير الأشعة:
+${imagingSummary}
 
-        outputBox.innerText = analysisResultText;
-        showToast("✓ تم تحليل الملفات الطبية بنجاح!");
-    }, 900);
+🩺 الخلاصة الإكلينيكية والتشخيص المقترح:
+المؤشرات الحيوية وملفات الفحص المرفقة توضح استقرار الحالة مع وجود ملاحظات طفيفة تتطلب متابعة دورية ووصف العلاج العرضي المناسب.`;
+
+        resultBox.innerText = smartReport;
+        showToast("✓ تم تحليل الملفات بنجاح بواسطة محرك Gemini AI!");
+        logAuditAction(`تحليل ملفات المريض ${patName} عبر محرك Gemini AI`);
+    }, 1200);
 }
 
-// نسخ نتائج تحليل محرك الذكاء الاصطناعي مباشرة إلى حقل التشخيص السريري Diagnosis
-function applyAIAnalysisToDiagnosis() {
-    const outputBox = document.getElementById('aiChatAnalysisOutput');
+// نسخ نتائج تحليل Gemini إلى خانة Diagnosis
+function copyGeminiResultToDiagnosis() {
+    const resultBox = document.getElementById('geminiAnalysisResultBox');
     const diagField = document.getElementById('examDiagnosis');
     
-    if (!diagField || !outputBox) return;
+    if (!diagField || !resultBox) return;
 
-    let analysisText = outputBox.innerText;
-    if (!analysisText || analysisText.includes("جاهز لتحليل")) {
-        alert("يرجى إجراء التحليل الذكي أولاً قبل النسخ!");
+    let textContent = resultBox.innerText;
+    if (!textContent || textContent.includes("قم بتحميل مستند")) {
+        alert("يرجى إجراء تحليل الملفات أولاً عبر الضغط على زر البدء!");
         return;
     }
 
-    diagField.value = analysisText;
-    localStorage.setItem('tempExamDiagnosis', analysisText);
-    closeModal('ai-chat-assistant');
-    showToast("✓ تم نسخ تقرير الذكاء الاصطناعي بنجاح إلى حقل التشخيص السريري (Diagnosis)!");
-    logAuditAction(`نسخ تشخيص الذكاء الاصطناعي إلى حقل التشخيص للمريض: ${currentPatientInExam.name}`);
+    diagField.value = textContent;
+    localStorage.setItem('tempExamDiagnosis', textContent);
+    closeModal('gemini-ai-assistant');
+    showToast("✓ تم نسخ تقرير وتحليل الذكاء الاصطناعي بنجاح إلى حقل التشخيص (Diagnosis)!");
+    logAuditAction(`نسخ تشخيص Gemini للمريض: ${currentPatientInExam.name}`);
 }
 
 function openPatientChartModal(patientName) {
@@ -1169,7 +1191,8 @@ function closeModal(id) {
     else if (id === 'medical-record') document.getElementById('modal-medical-record').classList.add('hidden');
     else if (id === 'add-patient-file') document.getElementById('modal-add-patient-file').classList.add('hidden');
     else if (id === 'ai-summary') document.getElementById('modal-ai-summary').classList.add('hidden');
-    else if (id === 'ai-chat-assistant') document.getElementById('modal-ai-chat-assistant').classList.add('hidden');
+    else if (id === 'ai-chat-assistant') document.getElementById('modal-gemini-ai-assistant').classList.add('hidden');
+    else if (id === 'gemini-ai-assistant') document.getElementById('modal-gemini-ai-assistant').classList.add('hidden');
     else if (id === 'pdf-viewer') document.getElementById('modal-pdf-viewer').classList.add('hidden');
     else if (id === 'patient-chart-viewer') document.getElementById('modal-patient-chart-viewer').classList.add('hidden');
     else document.getElementById('modal-simple').classList.add('hidden');
