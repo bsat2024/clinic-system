@@ -28,7 +28,6 @@ let clinicDatabase = {
     currentPatientInExam: null
 };
 
-// قراءة قاعدة البيانات الدائمة من القرص الصلب إن وجدت
 if (fs.existsSync(DB_FILE)) {
     try {
         const savedData = fs.readFileSync(DB_FILE, 'utf8');
@@ -77,13 +76,12 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-    // إرسال الحالة الحالية فور اتصال الاستقبال أو المدير أو الطبيب
+    // إرسال أحدث نسخة فور اتصال أي موظف (استقبال أو مدير)
     socket.emit('sync-clinic-data', clinicDatabase);
 
-    // استقبال التحديثات ودمجها بذكاء تام وحفظها فوراً على السيرفر
+    // استقبال البيانات من الاستقبال أو المدير ودمجها بدقة تامة وبثها لكافة الأطراف
     socket.on('update-clinic-data', (incomingData) => {
         if (incomingData) {
-            // دمج المرضى (منع التكرار والحفاظ على كافة الملفات الطبية المرفقة)
             if (incomingData.patientsList) {
                 incomingData.patientsList.forEach(incPat => {
                     let exists = clinicDatabase.patientsList.find(p => (p.idCard && p.idCard.trim() === incPat.idCard?.trim()) || p.name.trim().toLowerCase() === incPat.name.trim().toLowerCase());
@@ -91,9 +89,10 @@ io.on('connection', (socket) => {
                         clinicDatabase.patientsList.push(incPat);
                     } else {
                         exists.visitsCount = Math.max(exists.visitsCount || 1, incPat.visitsCount || 1);
+                        if (incPat.phone) exists.phone = incPat.phone;
+                        if (incPat.dob) exists.dob = incPat.dob;
                         if (incPat.medicalHistory) {
                             if (!exists.medicalHistory) exists.medicalHistory = { labs: [], imaging: [] };
-                            // دمج التحاليل والأشعة بدقة
                             incPat.medicalHistory.labs?.forEach(l => {
                                 if (!exists.medicalHistory.labs.some(x => x.title === l.title && x.date === l.date)) {
                                     exists.medicalHistory.labs.push(l);
@@ -137,8 +136,10 @@ io.on('connection', (socket) => {
                 clinicDatabase.auditLogs = incomingData.auditLogs;
             }
 
-            saveDatabaseToFile(); // حفظ دائم على القرص
-            io.emit('sync-clinic-data', clinicDatabase); // بث فوري للجميع (استقبال، مدير، طبيب)
+            saveDatabaseToFile();
+            
+            // بث مباشر وثطبيقي لكافة الأجهزة والواجهات المفتوحة
+            io.emit('sync-clinic-data', clinicDatabase);
         }
     });
 
@@ -149,5 +150,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`سيرفر العيادة يعمل بكفاءة على البورت: ${PORT}`);
+    console.log(`السيرفر يعمل بكفاءة على البورت: ${PORT}`);
 });
