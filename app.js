@@ -15,12 +15,11 @@ let selectedPatientForExtraFile = "";
 
 let doctorPrescriptionTemplates = JSON.parse(localStorage.getItem('clinicDoctorTemplates')) || {};
 
-// تمت إزالة قسم الوصفات من القائمة الجانبية وأصبحت تدار من قسم الأطباء
 let currentAllowedTabs = ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'invoices', 'reports', 'staff', 'settings'];
 
 let db = JSON.parse(localStorage.getItem('clinicOfflineDB')) || {
     staffList: [
-        { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'invoices', 'reports', 'staff', 'settings'] },
+        { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'] },
         { name: "موظف الاستقبال", username: "reception", password: "123", role: "receptionist", allowedTabs: ['dashboard', 'reception', 'appointments', 'patients', 'invoices'] }
     ],
     patientsList: [],
@@ -59,9 +58,18 @@ try {
         }
     });
     
+    // المزامنة التلقائية الشاملة لكل أقسام الواجهة والجداول فوراً
     socket.on('sync-clinic-data', (serverData) => {
-        if (serverData && serverData.patientsList) {
-            db = serverData;
+        if (serverData) {
+            db.patientsList = serverData.patientsList || [];
+            db.triageQueue = serverData.triageQueue || [];
+            db.appointments = serverData.appointments || [];
+            db.invoicesList = serverData.invoicesList || [];
+            db.doctorsList = serverData.doctorsList || [];
+            db.staffList = serverData.staffList || [];
+            db.prescriptionsList = serverData.prescriptionsList || [];
+            db.auditLogs = serverData.auditLogs || [];
+
             if (serverData.currentPatientInExam !== undefined) {
                 currentPatientInExam = serverData.currentPatientInExam;
                 if (currentPatientInExam) {
@@ -70,6 +78,7 @@ try {
                     localStorage.removeItem('currentPatientInExam');
                 }
             }
+
             localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
             refreshAllUIs();
         }
@@ -111,7 +120,7 @@ function saveAndSync() {
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });
-        showToast(currentLang === 'ar' ? "✓ تم الحفظ والمزامنة الفورية بين الأطراف" : "✓ Enregistré et synchronisé en temps réel");
+        showToast(currentLang === 'ar' ? "✓ تمت المزامنة الشاملة والآلية للعيادة" : "✓ Synchronisation globale et automatique réussie");
     } else {
         showToast(currentLang === 'ar' ? "⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان" : "⚠️ Mode hors ligne : Enregistré localement");
     }
@@ -843,7 +852,6 @@ function populateDoctorQueueQuickDropdown() {
     if (sel) { sel.innerHTML = `<option value="">${currentLang==='ar'?'-- اختر مريضاً للفحص --':'-- Choisir un patient --'}</option>`; db.triageQueue.forEach(item => sel.innerHTML += `<option>${item.name}</option>`); }
 }
 
-// عرض قائمة الأطباء مع خيار تعديل البيانات وإرفاق الوصفة الفارغة المرجعية
 function loadDoctors() {
     let tb = document.getElementById('doctorsTbody');
     let cardsContainer = document.getElementById('doctorsListWithTemplateContainer');
@@ -880,12 +888,12 @@ function loadDoctors() {
                             <div class="flex items-center gap-2">
                                 <input type="file" id="docTplFile-${idx}" accept="image/*,.pdf" class="hidden" onchange="handleDoctorTemplateUpload(event, '${doc.name}')">
                                 <button type="button" onclick="document.getElementById('docTplFile-${idx}').click()" class="flex-1 bg-cyan-50/60 border border-cyan-200 hover:bg-cyan-100 text-[#0097b2] py-2 rounded-xl text-xs font-bold transition">
-                                    <i class="fa-solid fa-file-arrow-up"></i> ${hasFile ? (currentLang==='ar'?'تغيير ملف الوصفة المرجعية':'Modifier le modèle') : (currentLang==='ar'?'إرفاق صورة/PDF الوصفة':'Joindre image/PDF')}
+                                    <i class="fa-solid fa-file-arrow-up"></i> ${hasFile ? (currentLang==='ar'?'تغيير قالب الوصفة الفارغة':'Modifier le modèle') : (currentLang==='ar'?'إرفاق صورة/PDF الوصفة الفارغة':'Joindre modèle vide')}
                                 </button>
                                 ${hasFile ? `<button type="button" onclick="previewMedicalFile('${savedTemplate.fileData}', '${savedTemplate.fileName}')" class="bg-blue-50 text-blue-700 px-3.5 py-2 rounded-xl text-xs font-bold border border-blue-200"><i class="fa-solid fa-eye"></i></button>` : ''}
                             </div>
                             <p class="text-[10px] ${hasFile?'text-emerald-600':'text-amber-600'} font-black">
-                                ${hasFile ? (currentLang==='ar' ? `✓ مرجع الطباعة الحالي: ${savedTemplate.fileName}` : `✓ Modèle actuel: ${savedTemplate.fileName}`) : (currentLang==='ar' ? '⚠️ لم يتم إرفاق قالب مرجعي بعد' : '⚠️ Aucun modèle joint')}
+                                ${hasFile ? (currentLang === 'ar' ? `✓ مرجع الطباعة الحالي: ${savedTemplate.fileName}` : `✓ Modèle actuel: ${savedTemplate.fileName}`) : (currentLang === 'ar' ? '⚠️ لم يتم إرفاق قالب مرجعي بعد' : '⚠️ Aucun modèle joint')}
                             </p>
                         </div>
                     </div>
