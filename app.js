@@ -56,24 +56,11 @@ try {
         }
     });
     
+    // المزامنة التلقائية واللحظية لكافة الأطراف (استقبال، مدير، طبيب)
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData && serverData.patientsList) {
-            serverData.patientsList.forEach(sPat => {
-                let localPat = db.patientsList.find(p => (p.idCard && p.idCard === sPat.idCard) || p.name === sPat.name);
-                if (!localPat) {
-                    db.patientsList.push(sPat);
-                } else if (sPat.medicalHistory) {
-                    localPat.medicalHistory = sPat.medicalHistory;
-                }
-            });
-            db.triageQueue = serverData.triageQueue || [];
-            serverData.invoicesList.forEach(inv => {
-                if (!db.invoicesList.some(i => i.invNum === inv.invNum)) db.invoicesList.push(inv);
-            });
-            serverData.appointments.forEach(app => {
-                if (!db.appointments.some(a => a.name === app.name && a.date === app.date)) db.appointments.push(app);
-            });
-
+            db = serverData; // اعتماد أحدث نسخة موحدة من السيرفر لضمان التطابق التام
+            
             if (serverData.currentPatientInExam !== undefined) {
                 currentPatientInExam = serverData.currentPatientInExam;
                 if (currentPatientInExam) {
@@ -123,7 +110,7 @@ function saveAndSync() {
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });
-        showToast("✓ تم الحفظ والمزامنة الفورية بين الأطراف");
+        showToast("✓ تم الحفظ والمزامنة الفورية مع جميع الأطراف");
     } else {
         showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان");
     }

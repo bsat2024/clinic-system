@@ -33,7 +33,7 @@ if (fs.existsSync(DB_FILE)) {
         const savedData = fs.readFileSync(DB_FILE, 'utf8');
         clinicDatabase = JSON.parse(savedData);
     } catch (e) {
-        console.log("خطأ في قراءة قاعدة البيانات، استخدام النسخة الافتراضية.");
+        console.log("خطأ في قراءة ملف قاعدة البيانات، استخدام الافتراضي.");
     }
 }
 
@@ -41,7 +41,7 @@ function saveDatabaseToFile() {
     try {
         fs.writeFileSync(DB_FILE, JSON.stringify(clinicDatabase, null, 2), 'utf8');
     } catch (e) {
-        console.log("تعذر حفظ قاعدة البيانات.");
+        console.log("تعذر حفظ ملف قاعدة البيانات.");
     }
 }
 
@@ -73,12 +73,12 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
+    // إرسال البيانات فور اتصال أي جهاز (مدير أو استقبال أو طبيب)
     socket.emit('sync-clinic-data', clinicDatabase);
 
-    // دمج ذكي وثنائي الاتجاه لأي بيانات قادمة من الاستقبال أو الإدارة أو الطبيب
+    // استقبال أي تحديث ودمجه وبثه فورا لجميع الأجهزة المتصلة بدون استثناء
     socket.on('update-clinic-data', (incomingData) => {
         if (incomingData) {
-            // دمج المرضى وملفاتهم بدقة
             if (incomingData.patientsList) {
                 incomingData.patientsList.forEach(incPat => {
                     let exists = clinicDatabase.patientsList.find(p => (p.idCard && p.idCard === incPat.idCard) || p.name === incPat.name);
@@ -109,7 +109,9 @@ io.on('connection', (socket) => {
             if (incomingData.auditLogs) clinicDatabase.auditLogs = incomingData.auditLogs;
 
             saveDatabaseToFile();
-            io.emit('sync-clinic-data', clinicDatabase); // تحديث كافة الأطراف فوراً
+            
+            // البث العام الشامل لجميع الأطراف
+            io.emit('sync-clinic-data', clinicDatabase);
         }
     });
 
