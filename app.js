@@ -58,41 +58,7 @@ try {
     
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData && serverData.patientsList) {
-            serverData.patientsList.forEach(sPat => {
-                let localPat = db.patientsList.find(p => 
-                    (p.idCard && sPat.idCard && p.idCard.trim() === sPat.idCard.trim()) || 
-                    (p.name && sPat.name && p.name.trim().toLowerCase() === sPat.name.trim().toLowerCase())
-                );
-                if (!localPat) {
-                    db.patientsList.push(sPat);
-                } else {
-                    localPat.visitsCount = Math.max(localPat.visitsCount || 1, sPat.visitsCount || 1);
-                    if (sPat.phone) localPat.phone = sPat.phone;
-                    if (sPat.dob) localPat.dob = sPat.dob;
-                    if (sPat.medicalHistory) {
-                        if (!localPat.medicalHistory) localPat.medicalHistory = { labs: [], imaging: [] };
-                        sPat.medicalHistory.labs?.forEach(l => {
-                            let idx = localPat.medicalHistory.labs.findIndex(x => x.title === l.title && x.date === l.date);
-                            if (idx === -1) localPat.medicalHistory.labs.push(l);
-                            else if (l.fileData) localPat.medicalHistory.labs[idx] = l;
-                        });
-                        sPat.medicalHistory.imaging?.forEach(img => {
-                            let idx = localPat.medicalHistory.imaging.findIndex(x => x.title === img.title && x.date === img.date);
-                            if (idx === -1) localPat.medicalHistory.imaging.push(img);
-                            else if (img.fileData) localPat.medicalHistory.imaging[idx] = img;
-                        });
-                    }
-                }
-            });
-
-            db.triageQueue = serverData.triageQueue || [];
-            
-            serverData.invoicesList.forEach(inv => {
-                if (!db.invoicesList.some(i => i.invNum === inv.invNum)) db.invoicesList.push(inv);
-            });
-            serverData.appointments.forEach(app => {
-                if (!db.appointments.some(a => a.name === app.name && a.date === app.date)) db.appointments.push(app);
-            });
+            db = serverData; // مزامنة مطلقة لكل قاعدة البيانات المحدثة من السيرفر
 
             if (serverData.currentPatientInExam !== undefined) {
                 currentPatientInExam = serverData.currentPatientInExam;
@@ -143,7 +109,7 @@ function saveAndSync() {
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });
-        showToast("✓ تم الحفظ والمزامنة الفورية");
+        showToast("✓ تم الحفظ والمزامنة الفورية بين الأطراف");
     } else {
         showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان");
     }
@@ -972,6 +938,46 @@ function generateAIClinicalSummary() {
     }, 800);
 }
 
+// عرض واجهة الاطلاع الشامل على الملف الطبي للمريض من قسم المرضى
+function openPatientChartModal(patientName) {
+    let patient = db.patientsList.find(p => p.name.trim().toLowerCase() === patientName.trim().toLowerCase());
+    if (!patient) {
+        alert("المريض غير موجود!");
+        return;
+    }
+
+    document.getElementById('chartModalPatientName').innerText = patient.name;
+    document.getElementById('chartModalPatientDetails').innerText = `بطاقة التعريف: ${patient.idCard || '--'} | الهاتف: ${patient.phone || '--'} | الزيارات: ${patient.visitsCount || 1}`;
+
+    const labsBox = document.getElementById('chartModalLabsContainer');
+    const imgBox = document.getElementById('chartModalImagingContainer');
+    labsBox.innerHTML = '';
+    imgBox.innerHTML = '';
+
+    const labs = patient.medicalHistory?.labs || [];
+    const imaging = patient.medicalHistory?.imaging || [];
+
+    if (labs.length === 0) {
+        labsBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد تحاليل مسجلة لهذا المريض</p>`;
+    } else {
+        labs.forEach(l => {
+            let fileBtn = l.fileData ? `<button onclick="previewMedicalFile('${l.fileData}', '${l.fileName || l.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3.5 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> معاينة الملف / PDF</button>` : '';
+            labsBox.innerHTML += `<div class="p-3.5 rounded-2xl border bg-emerald-50/50 text-xs shadow-sm space-y-1"><b class="text-emerald-900 block text-sm">${l.title}</b> <span class="text-gray-500">(${l.date})</span><p class="text-gray-700 font-medium">${l.result}</p>${fileBtn}</div>`;
+        });
+    }
+
+    if (imaging.length === 0) {
+        imgBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد صور أشعة مسجلة لهذا المريض</p>`;
+    } else {
+        imaging.forEach(img => {
+            let fileBtn = img.fileData ? `<button onclick="previewMedicalFile('${img.fileData}', '${img.fileName || img.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3.5 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> معاينة الأشعة / PDF</button>` : '';
+            imgBox.innerHTML += `<div class="p-3.5 rounded-2xl border bg-blue-50/50 text-xs shadow-sm space-y-1"><b class="text-blue-900 block text-sm">${img.title}</b> <span class="text-gray-500">(${img.date})</span><p class="text-gray-700 font-medium">${img.result}</p>${fileBtn}</div>`;
+        });
+    }
+
+    document.getElementById('modal-patient-chart-viewer').classList.remove('hidden');
+}
+
 function loadPatients() {
     let tb = document.getElementById('patientsTbody');
     if (!tb) return;
@@ -979,11 +985,15 @@ function loadPatients() {
     db.patientsList.forEach((p, i) => {
         let totalFiles = ((p.medicalHistory?.labs?.length || 0) + (p.medicalHistory?.imaging?.length || 0));
         let editControls = currentUserRole === 'admin' ? `
-            <button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2 py-1.5 rounded-xl text-xs font-bold" title="إضافة تحليل أو أشعة"><i class="fa-solid fa-file-medical"></i> + ملف</button>
+            <button onclick="openPatientChartModal('${p.name}')" class="bg-indigo-50 border text-indigo-700 px-2.5 py-1.5 rounded-xl text-xs font-bold" title="الاطلاع على الملف الطبي"><i class="fa-solid fa-folder-open"></i> الملف</button>
+            <button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2.5 py-1.5 rounded-xl text-xs font-bold" title="إضافة تحليل أو أشعة"><i class="fa-solid fa-file-medical"></i> + ملف</button>
             <button id="p-edit-btn-${i}" onclick="enablePatientEdit(${i})" class="bg-blue-50 border text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-pen-to-square"></i> تعديل</button>
             <button id="p-save-btn-${i}" onclick="savePatientEdit(${i})" class="hidden bg-emerald-50 border text-emerald-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-floppy-disk"></i> حفظ</button>
             <button onclick="deletePatient(${i})" class="text-red-500 font-bold px-1.5"><i class="fa-solid fa-trash"></i></button>
-        ` : `<button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2 py-1.5 rounded-xl text-xs font-bold" title="إضافة تحليل أو أشعة"><i class="fa-solid fa-file-medical"></i> + ملف</button>`;
+        ` : `
+            <button onclick="openPatientChartModal('${p.name}')" class="bg-indigo-50 border text-indigo-700 px-2.5 py-1.5 rounded-xl text-xs font-bold" title="الاطلاع على الملف الطبي"><i class="fa-solid fa-folder-open"></i> الملف</button>
+            <button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2.5 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-file-medical"></i> + ملف</button>
+        `;
 
         tb.innerHTML += `
             <tr id="pat-row-${i}">
@@ -1148,7 +1158,7 @@ function openModal(type) {
     document.querySelectorAll('#modal-invoice, #modal-simple').forEach(el => el.classList.add('hidden'));
     document.querySelectorAll('.simple-form').forEach(el => el.classList.add('hidden'));
     if (type === 'invoice') {
-        document.getElementById('modal-invoice').classList.add('hidden'); // placeholder
+        document.getElementById('modal-invoice').classList.remove('hidden');
     } else {
         document.getElementById('modal-simple').classList.remove('hidden');
         if (type === 'patient') document.getElementById('form-newPatient').classList.remove('hidden');
@@ -1164,6 +1174,7 @@ function closeModal(id) {
     else if (id === 'add-patient-file') document.getElementById('modal-add-patient-file').classList.add('hidden');
     else if (id === 'ai-summary') document.getElementById('modal-ai-summary').classList.add('hidden');
     else if (id === 'pdf-viewer') document.getElementById('modal-pdf-viewer').classList.add('hidden');
+    else if (id === 'patient-chart-viewer') document.getElementById('modal-patient-chart-viewer').classList.add('hidden');
     else document.getElementById('modal-simple').classList.add('hidden');
 }
 

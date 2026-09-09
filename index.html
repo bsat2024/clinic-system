@@ -547,6 +547,45 @@
         </div>
     </div>
 
+    <!-- نافذة الاطلاع الشامل على الملف الطبي للمريض (من قسم المرضى) -->
+    <div id="modal-patient-chart-viewer" class="fixed inset-0 bg-black/60 hidden flex justify-center items-center z-50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden border border-cyan-100">
+            <div class="bg-gradient-to-r from-[#0097b2] to-teal-600 text-white px-8 py-5 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-white/20 rounded-2xl flex items-center justify-center text-xl font-black">
+                        <i class="fa-solid fa-user-injured"></i>
+                    </div>
+                    <div>
+                        <h3 id="chartModalPatientName" class="font-black text-lg">اسم المريض</h3>
+                        <p id="chartModalPatientDetails" class="text-xs text-cyan-100 font-semibold mt-0.5">بطاقة التعريف: -- | الهاتف: --</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('patient-chart-viewer')" class="text-white font-bold text-2xl hover:text-gray-200">&times;</button>
+            </div>
+            
+            <div class="flex-1 bg-gray-50 p-6 overflow-y-auto space-y-5 text-xs font-medium">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border shadow-sm space-y-3">
+                        <h4 class="font-black text-emerald-800 text-sm border-b pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-vial-virus"></i> سجل التحاليل المخبرية للمريض
+                        </h4>
+                        <div id="chartModalLabsContainer" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border shadow-sm space-y-3">
+                        <h4 class="font-black text-blue-800 text-sm border-b pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-x-ray"></i> سجل الأشعة والتقارير المصورة
+                        </h4>
+                        <div id="chartModalImagingContainer" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white px-6 py-4 border-t flex justify-end">
+                <button onclick="closeModal('patient-chart-viewer')" class="bg-[#0097b2] hover:bg-[#007b92] text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow">إغلاق الملف</button>
+            </div>
+        </div>
+    </div>
+
     <!-- نافذة التلخيص الذكي بالذكاء الاصطناعي -->
     <div id="modal-ai-summary" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center z-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl p-8 space-y-5 border-2 border-purple-200">
