@@ -561,17 +561,20 @@ function confirmFinishExamination(e) {
     let ivFee = parseFloat(document.getElementById('modalIvFee').value) || 0;
     let totalAmount = consultFee + ecgFee + ivFee;
 
+    const dischargedPatientName = currentPatientInExam ? currentPatientInExam.name : "مريض";
+
     db.invoicesList.push({
         invNum: "INV-" + (1000 + db.invoicesList.length + 1),
-        patient: currentPatientInExam.name,
+        patient: dischargedPatientName,
         service: `كشفية ($${consultFee}) + ECG ($${ecgFee}) + محلول ($${ivFee})`,
         amount: totalAmount,
         status: "مدفوع"
     });
 
     closeExamPricingModal();
-    logAuditAction(`إنهاء فحص وتخريج المريض وإصدار فاتورة: ${currentPatientInExam.name}`);
+    logAuditAction(`إنهاء فحص وتخريج المريض وإصدار فاتورة: ${dischargedPatientName}`);
     
+    // تفريغ حقول غرفة الفحص الإكلينيكي والوصفات الطبية بالكامل
     document.getElementById('examDiagnosis').value = '';
     document.getElementById('examProcedure').value = '';
     document.getElementById('examPrescriptionText').value = '';
@@ -585,13 +588,17 @@ function confirmFinishExamination(e) {
         triggerNurseNextPatientAlert(nextPatient.name, nextPatient.doctor);
     }
 
+    // تصفير المريض الحالي بالفحص في كلا الطرفين وعلى الذاكرة المحلية
     currentPatientInExam = null;
     localStorage.removeItem('currentPatientInExam');
-    saveAndSync();
-    loadCurrentExamCard();
-    showToast("تم تخريج المريض وتفريغ غرفة الفحص وإصدار الفاتورة بنجاح!");
-}
 
+    // حفظ وبث التحديث الفوري للسيرفر وكافة الأجهزة المتصلة لتتطابق حالة العيادة وغرفة الفحص
+    saveAndSync();
+    
+    loadCurrentExamCard();
+    updateLiveBottomActiveBar(); // تحديث شريط حالة العيادة السفلي ليصبح شاغراً فوراً
+    showToast("تم تخريج المريض وتفريغ العيادة وغرفة الفحص بنجاح!");
+}
 function populateTriageDoctorDropdown() {
     let sel = document.getElementById('triageDoctor');
     let aDoc = document.getElementById('aDoc');
