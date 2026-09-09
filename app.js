@@ -52,7 +52,7 @@ try {
         let indicator = document.getElementById('networkStatusIndicator');
         if(indicator) {
             indicator.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> يعمل محلياً (Offline)`;
-            indicator.className = "text-[11px] font-black px-3.5 py-1.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-2 shadow-sm";
+            indicator.className = "text-[11px] font-black px-3.5 py-1.5 rounded-full bg-amber-100 text-amber-800 border border-emerald-300 flex items-center gap-2 shadow-sm";
         }
     });
     
@@ -938,7 +938,7 @@ function generateAIClinicalSummary() {
     }, 800);
 }
 
-// دالة توليد التشخيص الطبي السريري الذكي ووضعه مباشرة في حقل Diagnosis
+// دالة الذكاء الاصطناعي التي تقرأ التحاليل والأشعة وتضع التلخيص مباشرة في حقل التشخيص الطبي السريري (Diagnosis)
 function generateSmartDiagnosisAI() {
     if (!currentPatientInExam) {
         alert("لا يوجد مريض قيد الفحص حالياً لتوليد التشخيص له!");
@@ -954,37 +954,41 @@ function generateSmartDiagnosisAI() {
     let weight = currentPatientInExam.weight || "--";
 
     let patientRecord = db.patientsList.find(p => p.name.trim().toLowerCase() === patName.trim().toLowerCase());
-    let labs = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.labs) || [];
-    let imaging = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.imaging) || [];
+    
+    if (!patientRecord) {
+        alert("لم يتم العثور على السجل الطبي لهذا المريض!");
+        return;
+    }
 
-    let summaryText = `المريض: ${patName} | العلامات الحيوية: ضغط الدم (${bp})، سكري الدم (${sugar} g/L). `;
-    if (labs.length > 0) {
-        summaryText += `التحاليل السابقة: ${labs[0].title} (${labs[0].result}). `;
-    }
-    if (imaging.length > 0) {
-        summaryText += `الأشعة السابقة: ${imaging[0].title}. `;
-    }
+    let labs = patientRecord.medicalHistory?.labs || [];
+    let imaging = patientRecord.medicalHistory?.imaging || [];
+
+    let labsDetails = labs.length > 0 ? labs.map(l => `[تحليل: ${l.title} بتاريخ ${l.date} - ${l.result}]`).join('؛ ') : "لا توجد تحاليل سابقة.";
+    let imagingDetails = imaging.length > 0 ? imaging.map(img => `[أشعة: ${img.title} بتاريخ ${img.date} - ${img.result}]`).join('؛ ') : "لا توجد أشعة سابقة.";
 
     let sys = 120;
     if (bp.includes('/')) sys = parseFloat(bp.split('/')[0]) || 120;
     let sVal = parseFloat(sugar) || 1.10;
 
-    let suggestedDiagnosis = "";
+    let aiSummaryDiagnosis = "";
+
     if (sys >= 150) {
-        suggestedDiagnosis = `[تشخيص مقترح ذكي AI]: ارتفاع حاد في ضغط الدم (Hypertension Stage 2). يوصى بإجراء تخطيط قلب ECG ووصف خافض للضغط ومتابعة دورية. (${summaryText})`;
+        aiSummaryDiagnosis = `[تشخيص ذكي (AI) - الملف الطبي والمؤشرات]: ارتفاع حاد في ضغط الدم [ضغط: ${bp}]. بالاطلاع على التحاليل (${labsDetails}) والأشعة (${imagingDetails})، يوصى بوصف خافض للضغط، عمل تخطيط قلب ECG، ومراجعة دورية عاجلة.`;
     } else if (sVal >= 2.0) {
-        suggestedDiagnosis = `[تشخيص مقترح ذكي AI]: اشتباه فرط سكر الدم (Hyperglycemia). يوصى بفحص السكر التراكمي HbA1c وضبط حمية غذائية. (${summaryText})`;
+        aiSummaryDiagnosis = `[تشخيص ذكي (AI) - الملف الطبي والمؤشرات]: اشتباه فرط سكر الدم [سكر: ${sugar} g/L]. بمراجعة السجل الطبي السابق (${labsDetails} | ${imagingDetails})، يوصى بطلب فحص السكر التراكمي HbA1c وتنظيم الخطة الغذائية.`;
+    } else if (labs.length > 0 || imaging.length > 0) {
+        aiSummaryDiagnosis = `[تشخيص ذكي (AI) - قراءة الملفات السريرية]: الحالة مستقرة حيوياً [ضغط: ${bp}، سكر: ${sugar}]. بالاطلاع على الفحوصات والأشعة المرفقة للمريض (${labsDetails} | ${imagingDetails})، تظهر الاستجابة جيدة مع ضرورة متابعة الأعراض الراهنة.`;
     } else {
-        suggestedDiagnosis = `[تشخيص مقترح ذكي AI]: استقرار نسبي في المؤشرات الحيوية مع أعراض التهابية تنفسية أو عامة. يوصى بالعلاج العرضي ومضادات الالتهاب المناسبة. (${summaryText})`;
+        aiSummaryDiagnosis = `[تشخيص ذكي (AI) - فحص أولي]: مريض بملف جديد [ضغط: ${bp}، سكر: ${sugar} g/L]. لا توجد تقارير تحاليل أو أشعة سابقة مسجلة. يوصى بإجراء الفحص الإكلينيكي المباشر وتحديد العلاج المناسب.`;
     }
 
-    diagField.value = suggestedDiagnosis;
-    localStorage.setItem('tempExamDiagnosis', suggestedDiagnosis);
-    showToast("✓ تم توليد التشخيص الذكي ووضعه في الحقل بنجاح!");
-    logAuditAction(`توليد تشخيص بالذكاء الاصطناعي للمريض: ${patName}`);
+    diagField.value = aiSummaryDiagnosis;
+    localStorage.setItem('tempExamDiagnosis', aiSummaryDiagnosis);
+    
+    showToast("✓ تم قراءة الملفات الطبية وتوليد التشخيص الذكي في الحقل بنجاح!");
+    logAuditAction(`توليد تشخيص ذكي بالذكاء الاصطناعي للمريض: ${patName}`);
 }
 
-// عرض واجهة الاطلاع الشامل على الملف الطبي للمريض من قسم المرضى
 function openPatientChartModal(patientName) {
     let patient = db.patientsList.find(p => p.name.trim().toLowerCase() === patientName.trim().toLowerCase());
     if (!patient) {
