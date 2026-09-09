@@ -58,7 +58,7 @@ try {
         }
     });
     
-    // استقبال التحديثات الشاملة فور حدوثها في أي قسم وتحديث الواجهة مباشرة
+    // استقبال وتحديث شامل لكل الأقسام وملفات المرضى المرفقة
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData) {
             db.patientsList = serverData.patientsList || [];

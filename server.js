@@ -14,7 +14,7 @@ const DB_FILE = path.join(__dirname, 'clinic_db.json');
 
 let clinicDatabase = {
     staffList: [
-        { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'invoices', 'reports', 'staff', 'settings'] },
+        { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'] },
         { name: "موظف الاستقبال", username: "reception", password: "123", role: "receptionist", allowedTabs: ['dashboard', 'reception', 'appointments', 'patients', 'invoices'] }
     ],
     patientsList: [],
@@ -76,10 +76,10 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-    // إرسال القاعدة الكاملة فور الاتصال
+    // إرسال أحدث نسخة كاملة فور اتصال الجهاز
     socket.emit('sync-clinic-data', clinicDatabase);
 
-    // استقبال أي تحديث من أي قسم وبثه لجميع الأجهزة والواجهات
+    // دمج ذكي وعميق للملفات والمرضى وبث التحديثات لكل الأقسام
     socket.on('update-clinic-data', (incomingData) => {
         if (incomingData) {
             if (incomingData.patientsList && Array.isArray(incomingData.patientsList)) {
@@ -96,17 +96,26 @@ io.on('connection', (socket) => {
                         if (incPat.dob) exists.dob = incPat.dob;
                         if (incPat.conditionsText) exists.conditionsText = incPat.conditionsText;
                         
+                        // دمج دقيق لملفات التحاليل والأشعة مع بيانات الـ Base64
                         if (incPat.medicalHistory) {
                             if (!exists.medicalHistory) exists.medicalHistory = { labs: [], imaging: [] };
+                            
                             incPat.medicalHistory.labs?.forEach(l => {
                                 let matchIdx = exists.medicalHistory.labs.findIndex(x => x.title === l.title && x.date === l.date);
-                                if (matchIdx === -1) exists.medicalHistory.labs.push(l);
-                                else if (l.fileData) exists.medicalHistory.labs[matchIdx] = l;
+                                if (matchIdx === -1) {
+                                    exists.medicalHistory.labs.push(l);
+                                } else if (l.fileData && !exists.medicalHistory.labs[matchIdx].fileData) {
+                                    exists.medicalHistory.labs[matchIdx] = l;
+                                }
                             });
+
                             incPat.medicalHistory.imaging?.forEach(img => {
                                 let matchIdx = exists.medicalHistory.imaging.findIndex(x => x.title === img.title && x.date === img.date);
-                                if (matchIdx === -1) exists.medicalHistory.imaging.push(img);
-                                else if (img.fileData) exists.medicalHistory.imaging[matchIdx] = img;
+                                if (matchIdx === -1) {
+                                    exists.medicalHistory.imaging.push(img);
+                                } else if (img.fileData && !exists.medicalHistory.imaging[matchIdx].fileData) {
+                                    exists.medicalHistory.imaging[matchIdx] = img;
+                                }
                             });
                         }
                     }
@@ -115,37 +124,15 @@ io.on('connection', (socket) => {
 
             if (incomingData.triageQueue) clinicDatabase.triageQueue = incomingData.triageQueue;
             if (incomingData.currentPatientInExam !== undefined) clinicDatabase.currentPatientInExam = incomingData.currentPatientInExam;
-            
-            if (incomingData.invoicesList && Array.isArray(incomingData.invoicesList)) {
-                incomingData.invoicesList.forEach(inv => {
-                    if (!clinicDatabase.invoicesList.some(i => i.invNum === inv.invNum)) {
-                        clinicDatabase.invoicesList.push(inv);
-                    }
-                });
-            }
-
-            if (incomingData.appointments && Array.isArray(incomingData.appointments)) {
-                incomingData.appointments.forEach(app => {
-                    if (!clinicDatabase.appointments.some(a => a.name === app.name && a.date === app.date)) {
-                        clinicDatabase.appointments.push(app);
-                    }
-                });
-            }
-
-            if (incomingData.doctorsList && Array.isArray(incomingData.doctorsList)) {
-                clinicDatabase.doctorsList = incomingData.doctorsList;
-            }
-
-            if (incomingData.staffList && Array.isArray(incomingData.staffList)) {
-                clinicDatabase.staffList = incomingData.staffList;
-            }
-
-            if (incomingData.auditLogs && Array.isArray(incomingData.auditLogs)) {
-                clinicDatabase.auditLogs = incomingData.auditLogs;
-            }
+            if (incomingData.invoicesList) clinicDatabase.invoicesList = incomingData.invoicesList;
+            if (incomingData.appointments) clinicDatabase.appointments = incomingData.appointments;
+            if (incomingData.doctorsList) clinicDatabase.doctorsList = incomingData.doctorsList;
+            if (incomingData.staffList) clinicDatabase.staffList = incomingData.staffList;
+            if (incomingData.auditLogs) clinicDatabase.auditLogs = incomingData.auditLogs;
+            if (incomingData.prescriptionsList) clinicDatabase.prescriptionsList = incomingData.prescriptionsList;
 
             saveDatabaseToFile();
-            io.emit('sync-clinic-data', clinicDatabase); // مزامنة شاملة لكل الأقسام بالواجهة
+            io.emit('sync-clinic-data', clinicDatabase); // مزامنة فورية لكل الأطراف والواجهات
         }
     });
 
