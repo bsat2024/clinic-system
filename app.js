@@ -747,7 +747,7 @@ function showToast(msg) {
     setTimeout(() => t.classList.add('opacity-0', 'pointer-events-none'), 3000);
 }
 
-// دالة معاينة الملفات الطبية بصيغة PDF أو عارض مستندات منسق
+// معاينة الملفات (PDF / صور)
 function previewMedicalFile(fileData, fileName) {
     const container = document.getElementById('pdfViewerContentContainer');
     const downloadBtn = document.getElementById('pdfDownloadBtn');
@@ -765,7 +765,7 @@ function previewMedicalFile(fileData, fileName) {
     document.getElementById('modal-pdf-viewer').classList.remove('hidden');
 }
 
-// دوال إدارة ورفع الملفات الطبية
+// رفع الملف الأولي عند التسجيل
 function handlePatientInitFileSelection(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -802,9 +802,9 @@ function addPatientSimpleModal(e) {
         let recordObj = {
             date: new Date().toISOString().split('T')[0],
             title: initTitle,
-            result: "ملف مرفق عند التسجيل الأولي",
+            result: "ملف مرفق عند التسجيل الأولي بالنظام",
             fileData: currentPatientInitFileBase64,
-            fileName: currentPatientInitFileName
+            fileName: currentPatientInitFileName || "document.pdf"
         };
         if (initType === 'lab') newPatientObj.medicalHistory.labs.push(recordObj);
         else newPatientObj.medicalHistory.imaging.push(recordObj);
@@ -819,9 +819,10 @@ function addPatientSimpleModal(e) {
     document.getElementById('patInitFileLabel').innerText = "إرفاق تحليل أو صورة أشعة أولية (اختياري)";
 
     showToast("تم تسجيل المريض وملفه الطبي بنجاح!");
-    logAuditAction(`تسجيل مريض جديد: ${name}`);
+    logAuditAction(`تسجيل مريض جديد مع ملف: ${name}`);
 }
 
+// إضافة ملف إضافي لمريض مسجل مسبقاً
 function openAddExtraFileModal(patientName) {
     selectedPatientForExtraFile = patientName;
     document.getElementById('extraFilePatientName').value = patientName;
@@ -849,26 +850,40 @@ function saveExtraPatientFile(e) {
     const title = document.getElementById('extraFileTitle').value.trim();
     const result = document.getElementById('extraFileResult').value.trim() || "مرفق طبي إضافي";
 
-    let patient = db.patientsList.find(p => p.name.trim().toLowerCase() === selectedPatientForExtraFile.toLowerCase());
+    let patient = db.patientsList.find(p => p.name.trim().toLowerCase() === selectedPatientForExtraFile.trim().toLowerCase());
     if (patient) {
         if (!patient.medicalHistory) patient.medicalHistory = { labs: [], imaging: [] };
+        if (!patient.medicalHistory.labs) patient.medicalHistory.labs = [];
+        if (!patient.medicalHistory.imaging) patient.medicalHistory.imaging = [];
+
         let recordObj = {
             date: new Date().toISOString().split('T')[0],
-            title, result,
-            fileData: extraFileBase64,
-            fileName: extraFileName
+            title: title,
+            result: result,
+            fileData: extraFileBase64 || "",
+            fileName: extraFileName || "medical_file.pdf"
         };
-        if (type === 'lab') patient.medicalHistory.labs.unshift(recordObj);
-        else patient.medicalHistory.imaging.unshift(recordObj);
+
+        if (type === 'lab') {
+            patient.medicalHistory.labs.unshift(recordObj);
+        } else {
+            patient.medicalHistory.imaging.unshift(recordObj);
+        }
 
         saveAndSync();
         closeModal('add-patient-file');
-        showToast("تم إرفاق الملف الطبي بنجاح للمريض!");
-        logAuditAction(`إضافة ملف طبي (${title}) للمريض: ${selectedPatientForExtraFile}`);
+        showToast("✓ تم حفظ وإرفاق الملف الطبي بنجاح للمريض!");
+        logAuditAction(`إضافة ملف (${title}) للمريض: ${selectedPatientForExtraFile}`);
+        
+        if (currentPatientInExam && currentPatientInExam.name.toLowerCase() === selectedPatientForExtraFile.toLowerCase()) {
+            renderPatientMedicalHistoryInExam(currentPatientInExam.name);
+        }
+    } else {
+        alert("لم يتم العثور على المريض المحدد!");
     }
 }
 
-// دالة التلخيص بالذكاء الاصطناعي
+// التلخيص الذكي بالذكاء الاصطناعي
 function openAIAssistantModal() {
     if (!currentPatientInExam) {
         alert("لا يوجد مريض حالياً في غرفة الفحص لتحليله!");
@@ -883,21 +898,32 @@ function generateAIClinicalSummary() {
     box.innerHTML = `<div class="flex items-center justify-center py-8 text-purple-600 gap-2 font-bold"><i class="fa-solid fa-spinner fa-spin text-lg"></i> جاري استخراج وتحليل الملفات الطبية والمؤشرات الحيوية...</div>`;
 
     setTimeout(() => {
+        if (!currentPatientInExam) {
+            box.innerHTML = `<p class="text-red-500 font-bold text-center">لا يوجد مريض قيد الفحص حالياً.</p>`;
+            return;
+        }
+
         let patName = currentPatientInExam.name;
         let bp = currentPatientInExam.bp || "غير مدون";
         let sugar = currentPatientInExam.sugar || "غير مدون";
         let weight = currentPatientInExam.weight || "غير مدون";
 
-        let patientRecord = db.patientsList.find(p => p.name.trim().toLowerCase() === patName.toLowerCase());
+        let patientRecord = db.patientsList.find(p => p.name.trim().toLowerCase() === patName.trim().toLowerCase());
         let labs = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.labs) || [];
         let imaging = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.imaging) || [];
 
-        let labsSummary = labs.length > 0 ? labs.map(l => `- ${l.title} (${l.date}): ${l.result}`).join('<br>') : "لا توجد تحاليل مخبرية سابقة مرفقة.";
-        let imagingSummary = imaging.length > 0 ? imaging.map(img => `- ${img.title} (${img.date}): ${img.result}`).join('<br>') : "لا توجد صور أشعة مرفقة.";
+        let labsSummary = labs.length > 0 ? labs.map(l => `- <b>${l.title}</b> (${l.date}): ${l.result} ${l.fileData ? '[مرفق مستند]' : ''}`).join('<br>') : "لا توجد تحاليل مخبرية مسجلة.";
+        let imagingSummary = imaging.length > 0 ? imaging.map(img => `- <b>${img.title}</b> (${img.date}): ${img.result} ${img.fileData ? '[مرفق مستند]' : ''}`).join('<br>') : "لا توجد صور أشعة مسجلة.";
 
         let clinicalAssessment = "المؤشرات الحيوية ضمن الحدود المستقرة والمقبولة سريرياً.";
-        if (parseFloat(bp.split('/')[0]) >= 15 || parseFloat(sugar) >= 2.0) {
-            clinicalAssessment = "⚠️ تنبيه: تم رصد قيم حرجة في ضغط الدم أو السكري تستدعي اهتماماً تشخيصياً دقيقاً.";
+        let sys = 120;
+        if (bp.includes('/')) sys = parseFloat(bp.split('/')[0]) || 120;
+        let sVal = parseFloat(sugar) || 1.10;
+
+        if (sys >= 150 || sVal >= 2.0) {
+            clinicalAssessment = "⚠️ تنبيه عالي الخطورة: تم رصد قيم مرتفعة جداً في ضغط الدم أو السكري تتطلب تدخلاً علاجياً فورياً ومراجعة التحاليل المرفقة.";
+        } else if (sys >= 135 || sVal >= 1.4) {
+            clinicalAssessment = "⚠️ ملاحظة: ارتفاع طفيف في المؤشرات يستوجب مراقبة دقيقة ومقارنتها بالتقارير السابقة.";
         }
 
         box.innerHTML = `
@@ -905,25 +931,25 @@ function generateAIClinicalSummary() {
                 <div class="bg-white p-4 rounded-xl border shadow-sm space-y-1.5">
                     <h5 class="font-black text-purple-900 text-sm border-b pb-1">👤 المريض: ${patName}</h5>
                     <p><b>المؤشرات الحيوية الحالية:</b> ضغط الدم: <span class="text-emerald-700 font-bold">${bp}</span> | السكري: <span class="text-amber-700 font-bold">${sugar} g/L</span> | الوزن: <span class="font-bold">${weight} kg</span></p>
-                    <p><b>التقييم السريري السريع:</b> <span class="text-indigo-900 font-medium">${clinicalAssessment}</span></p>
+                    <p><b>التقييم السريري الذكي:</b> <span class="text-indigo-900 font-medium">${clinicalAssessment}</span></p>
                 </div>
 
                 <div class="bg-white p-4 rounded-xl border shadow-sm space-y-1.5">
-                    <h5 class="font-black text-emerald-900 text-xs border-b pb-1">🧪 ملخص التحاليل المخبرية المرفقة:</h5>
-                    <div class="text-gray-600">${labsSummary}</div>
+                    <h5 class="font-black text-emerald-900 text-xs border-b pb-1">🧪 تفاصيل التحاليل والمرفقات المخبرية (${labs.length}):</h5>
+                    <div class="text-gray-700 space-y-1">${labsSummary}</div>
                 </div>
 
                 <div class="bg-white p-4 rounded-xl border shadow-sm space-y-1.5">
-                    <h5 class="font-black text-blue-900 text-xs border-b pb-1">🩻 ملخص الأشعة والتقارير المصورة المرفقة:</h5>
-                    <div class="text-gray-600">${imagingSummary}</div>
+                    <h5 class="font-black text-blue-900 text-xs border-b pb-1">🩻 تفاصيل الأشعة والتقارير المصورة (${imaging.length}):</h5>
+                    <div class="text-gray-700 space-y-1">${imagingSummary}</div>
                 </div>
 
                 <div class="bg-purple-100/70 p-3.5 rounded-xl border border-purple-200 text-purple-950 font-bold">
-                    <i class="fa-solid fa-lightbulb text-amber-600"></i> المقترح التشخيصي المساعد: يوصى بمطابقة القيم السابقة مع الفحص السريري الحالي وكتابة خطة المتابعة.
+                    <i class="fa-solid fa-lightbulb text-amber-600"></i> التوصية السريرية للذكاء الاصطناعي: قم بمعاينة ملفات الـ PDF أو الصور المرفقة أعلاه في لوحة الفحص لمطابقة النتائج بدقة مع الحالة الحالية.
                 </div>
             </div>
         `;
-    }, 1000);
+    }, 800);
 }
 
 function loadPatients() {
@@ -931,6 +957,7 @@ function loadPatients() {
     if (!tb) return;
     tb.innerHTML = '';
     db.patientsList.forEach((p, i) => {
+        let totalFiles = ((p.medicalHistory?.labs?.length || 0) + (p.medicalHistory?.imaging?.length || 0));
         let editControls = currentUserRole === 'admin' ? `
             <button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2 py-1.5 rounded-xl text-xs font-bold" title="إضافة تحليل أو أشعة"><i class="fa-solid fa-file-medical"></i> + ملف</button>
             <button id="p-edit-btn-${i}" onclick="enablePatientEdit(${i})" class="bg-blue-50 border text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-pen-to-square"></i> تعديل</button>
@@ -945,7 +972,7 @@ function loadPatients() {
                 <td class="py-3 text-gray-500"><input type="date" id="p-dob-${i}" value="${p.dob}" class="border rounded-xl px-2 py-1.5 text-xs bg-gray-50" disabled></td>
                 <td class="py-3 text-gray-500"><input type="text" id="p-phone-${i}" value="${p.phone}" class="border rounded-xl px-2 py-1.5 text-xs bg-gray-50 w-28" disabled></td>
                 <td class="py-3"><span class="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-xl text-xs font-bold">${p.conditionsText || 'مسجل'}</span></td>
-                <td class="py-3 text-cyan-700 font-bold text-xs"><i class="fa-solid fa-folder"></i> ${((p.medicalHistory?.labs?.length || 0) + (p.medicalHistory?.imaging?.length || 0))} ملفات</td>
+                <td class="py-3 text-cyan-700 font-bold text-xs"><i class="fa-solid fa-folder"></i> ${totalFiles} ملفات</td>
                 <td class="py-3 flex items-center gap-2">${editControls}</td>
             </tr>
         `;
