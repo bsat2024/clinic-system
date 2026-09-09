@@ -13,6 +13,9 @@ let extraFileBase64 = null;
 let extraFileName = "";
 let selectedPatientForExtraFile = "";
 
+let geminiTempFileBase64 = null;
+let geminiTempFileName = "";
+
 let currentAllowedTabs = ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'];
 
 let db = JSON.parse(localStorage.getItem('clinicOfflineDB')) || {
@@ -42,7 +45,7 @@ try {
     socket.on('connect', () => {
         let indicator = document.getElementById('networkStatusIndicator');
         if(indicator) {
-            indicator.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span> متزامن (Live Cloud)`;
+            indicator.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span> ${currentLang === 'ar' ? 'متزامن (Live Cloud)' : 'Synchronisé (Live Cloud)'}`;
             indicator.className = "text-[11px] font-black px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-2 shadow-sm";
         }
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });
@@ -51,15 +54,14 @@ try {
     socket.on('disconnect', () => {
         let indicator = document.getElementById('networkStatusIndicator');
         if(indicator) {
-            indicator.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> يعمل محلياً (Offline)`;
-            indicator.className = "text-[11px] font-black px-3.5 py-1.5 rounded-full bg-amber-100 text-amber-800 border border-emerald-300 flex items-center gap-2 shadow-sm";
+            indicator.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> ${currentLang === 'ar' ? 'يعمل محلياً (Offline)' : 'Hors Ligne (Offline)'}`;
+            indicator.className = "text-[11px] font-black px-3.5 py-1.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-2 shadow-sm";
         }
     });
     
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData && serverData.patientsList) {
             db = serverData;
-
             if (serverData.currentPatientInExam !== undefined) {
                 currentPatientInExam = serverData.currentPatientInExam;
                 if (currentPatientInExam) {
@@ -68,7 +70,6 @@ try {
                     localStorage.removeItem('currentPatientInExam');
                 }
             }
-
             localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
             refreshAllUIs();
         }
@@ -109,15 +110,15 @@ function saveAndSync() {
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });
-        showToast("✓ تم الحفظ والمزامنة الفورية بين الأطراف");
+        showToast(currentLang === 'ar' ? "✓ تم الحفظ والمزامنة الفورية بين الأطراف" : "✓ Enregistré et synchronisé en temps réel");
     } else {
-        showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان");
+        showToast(currentLang === 'ar' ? "⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان" : "⚠️ Mode hors ligne : Enregistré localement");
     }
     refreshAllUIs();
 }
 
 window.addEventListener('online', () => {
-    showToast("✓ عاد الاتصال بالإنترنت! جاري دمج ومزامنة البيانات...");
+    showToast(currentLang === 'ar' ? "✓ عاد الاتصال بالإنترنت! جاري دمج ومزامنة البيانات..." : "✓ Connexion rétablie ! Synchronisation en cours...");
     if (socket) {
         if (!socket.connected) socket.connect();
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });
@@ -140,7 +141,7 @@ function refreshAllUIs() {
     }
 }
 
-// قاموس الترجمة الشامل ليشمل كل الأقسام، العناوين والجداول
+// قاموس الترجمة الشامل المحدث والمراجع لكل أقسام النظام وجداوله
 const translations = {
     ar: {
         pageTitle: "عيادات الأسرة | النظام الطبي الاحترافي",
@@ -178,7 +179,7 @@ const translations = {
         thQueueVitals: "المؤشرات",
         thQueuePriority: "الأسبقية",
         thQueueAction: "إجراء",
-        examTitle: "غرفة الفحص الإكلينيكي وصرف الوصفات",
+        examTitle: "غرفة الفحص",
         txtExamDesc: "تسجيل التشخيص والإجراءات الطبية وصرف الوصفات للمريض",
         txtSelFromQueue: "اختر من الانتظار:",
         optSelPatientPrompt: "-- اختر مريضاً للفحص --",
@@ -217,7 +218,7 @@ const translations = {
         thApptDate: "التاريخ",
         thApptStatus: "الحالة",
         thApptAction: "إجراء",
-        patsTabTitle: "المرضى المسجلين بالنظام",
+        patsTabTitle: "المرضى المسجلين",
         btnNewPat: "تسجيل مريض جديد",
         thPatName: "الاسم",
         thPatIdCard: "رقم البطاقة (ID)",
@@ -366,7 +367,7 @@ const translations = {
         thApptDate: "Date",
         thApptStatus: "Statut",
         thApptAction: "Action",
-        patsTabTitle: "Patients Enregistrés dans le Système",
+        patsTabTitle: "Patients Enregistrés",
         btnNewPat: "Enregistrer un Nouveau Patient",
         thPatName: "Nom",
         thPatIdCard: "Carte ID",
@@ -500,7 +501,7 @@ function renderAuditLogsTable() {
     if (!tb) return;
     tb.innerHTML = '';
     if (db.auditLogs.length === 0) {
-        tb.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-400">لا توجد سجلات نشاط مسجلة</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-400">${currentLang === 'ar' ? 'لا توجد سجلات نشاط مسجلة' : 'Aucun journal d\'activité'}</td></tr>`;
         return;
     }
     db.auditLogs.forEach(l => {
@@ -514,8 +515,8 @@ function updateExamRiskIndicator(bp, sugar) {
     const badge = document.getElementById('aiRiskBadge');
     if (!card) return;
 
-    let riskLevel = "آمن";
-    let desc = "المؤشرات الحيوية ضمن المعدلات الطبيعية الآمنة.";
+    let riskLevel = currentLang === 'ar' ? "آمن" : "Sûr";
+    let desc = currentLang === 'ar' ? "المؤشرات الحيوية ضمن المعدلات الطبيعية الآمنة." : "Les signes vitaux sont dans les normes.";
     let bgClass = "bg-gradient-to-r from-teal-600 to-[#0097b2]";
     let badgeClass = "bg-white text-teal-700";
 
@@ -528,13 +529,13 @@ function updateExamRiskIndicator(bp, sugar) {
     if (sVal > 40) sVal = sVal / 100;
 
     if (sys >= 16 || sVal >= 2.0) {
-        riskLevel = "خطر مرتفع!";
-        desc = "تجاوزات حرجة في ضغط الدم أو سكر الدم!";
+        riskLevel = currentLang === 'ar' ? "خطر مرتفع!" : "Risque Élevé !";
+        desc = currentLang === 'ar' ? "تجاوزات حرجة في ضغط الدم أو سكر الدم!" : "Anomalies critiques de la tension ou de la glycémie !";
         bgClass = "bg-gradient-to-r from-rose-600 to-red-700";
         badgeClass = "bg-white text-rose-700";
     } else if (sys >= 14 || sVal >= 1.4) {
-        riskLevel = "تنبيه متوسط";
-        desc = "ملاحظة ارتفاع طفيف يستوجب المراقبة الطبية.";
+        riskLevel = currentLang === 'ar' ? "تنبيه متوسط" : "Alerte Moyenne";
+        desc = currentLang === 'ar' ? "ملاحظة ارتفاع طفيف يستوجب المراقبة الطبية." : "Léger dépassement nécessitant une surveillance.";
         bgClass = "bg-gradient-to-r from-amber-500 to-orange-600";
         badgeClass = "bg-white text-amber-700";
     }
@@ -567,8 +568,8 @@ function initDashboardCharts() {
     revChartInstance = new Chart(ctx1, {
         type: 'line',
         data: {
-            labels: ['إجمالي الإيرادات المسجلة', 'المتوقع', 'المحصل الفعلي'],
-            datasets: [{ label: 'الإيرادات ($)', data: [totalRev, totalRev * 1.2, totalRev], borderColor: '#0097b2', backgroundColor: 'rgba(0,151,178,0.1)', tension: 0.3, fill: true }]
+            labels: currentLang === 'ar' ? ['إجمالي الإيرادات المسجلة', 'المتوقع', 'المحصل الفعلي'] : ['Total Enregistré', 'Prévu', 'Réel Perçu'],
+            datasets: [{ label: currentLang === 'ar' ? 'الإيرادات ($)' : 'Revenus ($)', data: [totalRev, totalRev * 1.2, totalRev], borderColor: '#0097b2', backgroundColor: 'rgba(0,151,178,0.1)', tension: 0.3, fill: true }]
         },
         options: { responsive: true, maintainAspectRatio: false }
     });
@@ -579,7 +580,7 @@ function initDashboardCharts() {
     casesChartInstance = new Chart(ctx2, {
         type: 'doughnut',
         data: {
-            labels: ['حالات طارئة / حرجة', 'مرضى عاديين / مسجلين', 'قائمة الانتظار'],
+            labels: currentLang === 'ar' ? ['حالات طارئة / حرجة', 'مرضى عاديين / مسجلين', 'قائمة الانتظار'] : ['Urgences / Critiques', 'Patients Normaux', 'File d\'Attente'],
             datasets: [{ data: [emergencyCount, normalCount, db.triageQueue.length], backgroundColor: ['#e11d48', '#0097b2', '#f59e0b'] }]
         },
         options: { responsive: true, maintainAspectRatio: false }
@@ -604,12 +605,12 @@ function checkPatientByIdCard(idCardNumber) {
     if (foundPatient) {
         nameInput.value = foundPatient.name;
         phoneInput.value = foundPatient.phone || '';
-        badge.innerText = `✓ مريض قديم مسجل (${foundPatient.visitsCount || 1} زيارات)`;
+        badge.innerText = currentLang === 'ar' ? `✓ مريض قديم مسجل (${foundPatient.visitsCount || 1} زيارات)` : `✓ Patient enregistré (${foundPatient.visitsCount || 1} visites)`;
         badge.className = 'px-4 py-2 rounded-2xl text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-300';
     } else {
         nameInput.value = '';
         phoneInput.value = '';
-        badge.innerText = `★ مريض جديد (سيتم تسجيله تلقائياً)`;
+        badge.innerText = currentLang === 'ar' ? `★ مريض جديد (سيتم تسجيله تلقائياً)` : `★ Nouveau patient (enregistrement auto)`;
         badge.className = 'px-4 py-2 rounded-2xl text-xs font-black bg-blue-50 text-[#0097b2] border border-cyan-300';
     }
 }
@@ -657,11 +658,11 @@ function handleTriageSubmit(e) {
 
     let patientObj = db.patientsList.find(p => (p.idCard || '').trim() === idCard);
     if (!patientObj) {
-        patientObj = { name, idCard, phone: phone || '--', dob: "2000-01-01", visitsCount: 1, conditionsText: "مريض جديد", medicalHistory: { labs: [], imaging: [] } };
+        patientObj = { name, idCard, phone: phone || '--', dob: "2000-01-01", visitsCount: 1, conditionsText: currentLang === 'ar' ? "مسجل جديد" : "Nouveau", medicalHistory: { labs: [], imaging: [] } };
         db.patientsList.push(patientObj);
     } else {
         patientObj.visitsCount = (patientObj.visitsCount || 1) + 1;
-        patientObj.conditionsText = "متابع";
+        patientObj.conditionsText = currentLang === 'ar' ? "متابع" : "Suivi";
     }
 
     db.triageQueue.push({ id: "Q-" + Date.now(), name, idCard, doctor, bp, weight, sugar, isEmergency, timestamp: Date.now() });
@@ -670,8 +671,8 @@ function handleTriageSubmit(e) {
     saveAndSync();
     e.target.reset();
     document.getElementById('patientStatusBadge').className = 'hidden';
-    showToast("تم تسجيل المريض وإرساله لقائمة الانتظار بنجاح!");
-    logAuditAction(`تسجيل ترياج للمريض: ${name} (ID: ${idCard})`);
+    showToast(currentLang === 'ar' ? "تم تسجيل المريض وإرساله لقائمة الانتظار بنجاح!" : "Patient enregistré et envoyé en file d'attente !");
+    logAuditAction(`تسجيل ترياج للمريض: ${name}`);
 }
 
 function loadTriageQueue() {
@@ -680,7 +681,7 @@ function loadTriageQueue() {
     tb.innerHTML = '';
     db.triageQueue.sort((a, b) => (b.isEmergency ? 1 : 0) - (a.isEmergency ? 1 : 0) || a.timestamp - b.timestamp);
     if (db.triageQueue.length === 0) {
-        tb.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-gray-400 font-bold">لا يوجد مرضى بقائمة الانتظار</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-gray-400 font-bold">${currentLang === 'ar' ? 'لا يوجد مرضى بقائمة الانتظار' : 'Aucun patient en attente'}</td></tr>`;
         populateDoctorQueueQuickDropdown();
         return;
     }
@@ -692,11 +693,11 @@ function loadTriageQueue() {
                 <td class="p-3.5 font-bold text-[#0097b2]">#${index + 1}</td>
                 <td class="p-3.5 font-black text-gray-800">${item.name}</td>
                 <td class="p-3.5 text-gray-600 font-bold">${item.idCard || '--'}</td>
-                <td class="p-3.5"><span class="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-100 text-emerald-800">مسجل</span></td>
+                <td class="p-3.5"><span class="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-100 text-emerald-800">${currentLang==='ar'?'مسجل':'Enregistré'}</span></td>
                 <td class="p-3.5 text-indigo-700 font-bold">${item.doctor}</td>
                 <td class="p-3.5 font-bold text-gray-700">${item.bp} | ${item.sugar} g/L</td>
-                <td class="p-3.5">${isEmerg ? '<span class="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-600 text-white animate-pulse">طارئة</span>' : 'عادي'}</td>
-                <td class="p-3.5"><button onclick="doctorCallPatient('${item.name}')" class="bg-[#0097b2] text-white px-4 py-2 rounded-2xl text-xs font-black shadow"><i class="fa-solid fa-bell"></i> استدعاء وفحص</button></td>
+                <td class="p-3.5">${isEmerg ? `<span class="px-2.5 py-1 rounded-xl text-[10px] font-black bg-rose-600 text-white animate-pulse">${currentLang==='ar'?'طارئة':'Urgence'}</span>` : (currentLang==='ar'?'عادي':'Normal')}</td>
+                <td class="p-3.5"><button onclick="doctorCallPatient('${item.name}')" class="bg-[#0097b2] text-white px-4 py-2 rounded-2xl text-xs font-black shadow"><i class="fa-solid fa-bell"></i> ${currentLang==='ar'?'استدعاء وفحص':'Appeler & Examiner'}</button></td>
             </tr>
         `;
     });
@@ -719,7 +720,7 @@ function doctorCallPatient(patientName) {
     switchTab('examination');
     loadCurrentExamCard();
     updateLiveBottomActiveBar();
-    showToast(`تم استدعاء ${targetPatient.name} للفحص!`);
+    showToast(currentLang === 'ar' ? `تم استدعاء ${targetPatient.name} للفحص!` : `Patient ${targetPatient.name} appelé pour examen !`);
     logAuditAction(`استدعاء المريض للفحص: ${targetPatient.name}`);
 }
 
@@ -755,7 +756,7 @@ function doctorCallPatientFromDropdown(name) { if (name) doctorCallPatient(name)
 
 function loadCurrentExamCard() {
     if (!currentPatientInExam) {
-        document.getElementById('examPatName').innerText = "لا يوجد مريض بالفحص";
+        document.getElementById('examPatName').innerText = currentLang === 'ar' ? "لا يوجد مريض بالفحص" : "Aucun patient en examen";
         document.getElementById('examPatBP').innerText = "--";
         document.getElementById('examPatSugar').innerText = "--";
         renderPatientMedicalHistoryInExam(null);
@@ -774,20 +775,20 @@ function updateLiveBottomActiveBar() {
     const timerEl = document.getElementById('liveActiveTimerText');
 
     if (currentPatientInExam) {
-        textEl.innerHTML = `المريض في الدور حالياً: <span class="text-[#0097b2] font-black text-sm">${currentPatientInExam.name}</span>`;
-        docEl.innerText = `عند: ` + currentPatientInExam.doctor;
-        timerEl.innerText = `منذ: ` + currentPatientInExam.startedAt;
+        textEl.innerHTML = currentLang === 'ar' ? `المريض في الدور حالياً: <span class="text-[#0097b2] font-black text-sm">${currentPatientInExam.name}</span>` : `Patient en cours: <span class="text-[#0097b2] font-black text-sm">${currentPatientInExam.name}</span>`;
+        docEl.innerText = (currentLang === 'ar' ? `عند: ` : `Chez: `) + currentPatientInExam.doctor;
+        timerEl.innerText = (currentLang === 'ar' ? `منذ: ` : `Depuis: `) + currentPatientInExam.startedAt;
         docEl.classList.remove('hidden');
         timerEl.classList.remove('hidden');
     } else {
-        textEl.innerText = "لا يوجد مريض بالفحص حالياً (العيادة شاغرة)";
+        textEl.innerText = currentLang === 'ar' ? "لا يوجد مريض بالفحص حالياً (العيادة شاغرة)" : "Aucun patient en examen (Cabinet libre)";
         docEl.classList.add('hidden');
         timerEl.classList.add('hidden');
     }
 }
 
 function openExamPricingModal() {
-    if (!currentPatientInExam) { alert("لا يوجد مريض قيد الفحص!"); return; }
+    if (!currentPatientInExam) { alert(currentLang === 'ar' ? "لا يوجد مريض قيد الفحص!" : "Aucun patient en cours d'examen !"); return; }
     document.getElementById('examPricingModal').classList.remove('hidden');
 }
 function closeExamPricingModal() { document.getElementById('examPricingModal').classList.add('hidden'); }
@@ -806,11 +807,11 @@ function confirmFinishExamination(e) {
         patient: dischargedPatientName,
         service: `كشفية ($${consultFee}) + ECG ($${ecgFee}) + محلول ($${ivFee})`,
         amount: totalAmount,
-        status: "مدفوع"
+        status: currentLang === 'ar' ? "مدفوع" : "Payé"
     });
 
     closeExamPricingModal();
-    logAuditAction(`إنهاء فحص وتخريج المريض وإصدار فاتورة: ${dischargedPatientName}`);
+    logAuditAction(`إنهاء فحص وتخريج المريض: ${dischargedPatientName}`);
     
     document.getElementById('examDiagnosis').value = '';
     document.getElementById('examProcedure').value = '';
@@ -829,21 +830,20 @@ function confirmFinishExamination(e) {
     localStorage.removeItem('currentPatientInExam');
 
     saveAndSync();
-    
     loadCurrentExamCard();
     updateLiveBottomActiveBar();
-    showToast("تم تخريج المريض وتفريغ العيادة وغرفة الفحص بنجاح!");
+    showToast(currentLang === 'ar' ? "تم تخريج المريض وتفريغ غرفة الفحص بنجاح!" : "Patient libéré et salle d'examen vidée avec succès !");
 }
 
 function populateTriageDoctorDropdown() {
     let sel = document.getElementById('triageDoctor');
     let aDoc = document.getElementById('aDoc');
-    if (sel) { sel.innerHTML = `<option value="">اختر الطبيب</option>`; db.doctorsList.forEach(item => sel.innerHTML += `<option>${item.name}</option>`); }
+    if (sel) { sel.innerHTML = `<option value="">${currentLang==='ar'?'اختر الطبيب':'Sélectionner le médecin'}</option>`; db.doctorsList.forEach(item => sel.innerHTML += `<option>${item.name}</option>`); }
     if (aDoc) { aDoc.innerHTML = ''; db.doctorsList.forEach(item => aDoc.innerHTML += `<option>${item.name}</option>`); }
 }
 function populateDoctorQueueQuickDropdown() {
     const sel = document.getElementById('docQueueQuickSelect');
-    if (sel) { sel.innerHTML = `<option value="">-- اختر مريضاً للفحص --</option>`; db.triageQueue.forEach(item => sel.innerHTML += `<option>${item.name}</option>`); }
+    if (sel) { sel.innerHTML = `<option value="">${currentLang==='ar'?'-- اختر مريضاً للفحص --':'-- Choisir un patient --'}</option>`; db.triageQueue.forEach(item => sel.innerHTML += `<option>${item.name}</option>`); }
 }
 
 function toggleLanguage() {
@@ -884,10 +884,10 @@ async function handleLogin(e) {
         localStorage.setItem('clinicSession', JSON.stringify({ username: currentUsername, role: currentUserRole, allowedTabs: currentAllowedTabs }));
         
         showApp();
-        showToast(`مرحباً بك ${found.name}!`);
+        showToast(currentLang === 'ar' ? `مرحباً بك ${found.name}!` : `Bienvenue ${found.name} !`);
         logAuditAction(`تسجيل دخول الموظف: ${found.name}`);
     } else {
-        alert("بيانات الدخول غير صحيحة! تأكد من اسم المستخدم وكلمة المرور.");
+        alert(currentLang === 'ar' ? "بيانات الدخول غير صحيحة!" : "Identifiants incorrects !");
     }
 }
 
@@ -940,7 +940,7 @@ function updateSidebarBadges() {
 
 function switchTab(tabId) {
     if (!currentAllowedTabs.includes(tabId) && currentUserRole !== 'admin') {
-        alert("عذراً، لا تمتلك صلاحية الوصول إلى هذه الواجهة!");
+        alert(currentLang === 'ar' ? "عذراً، لا تمتلك صلاحية الوصول!" : "Accès refusé !");
         return;
     }
 
@@ -973,7 +973,7 @@ function previewMedicalFile(fileData, fileName) {
     const downloadBtn = document.getElementById('pdfDownloadBtn');
     const titleEl = document.getElementById('pdfViewerTitle');
     
-    titleEl.innerText = `معاينة المستند: ${fileName || 'ملف طبي'}`;
+    titleEl.innerText = (currentLang === 'ar' ? `معاينة المستند: ` : `Aperçu du document: `) + (fileName || 'ملف طبي');
     downloadBtn.href = fileData;
     downloadBtn.download = fileName || 'medical_file';
 
@@ -993,7 +993,7 @@ function handlePatientInitFileSelection(event) {
     const reader = new FileReader();
     reader.onload = function(e) { currentPatientInitFileBase64 = e.target.result; };
     reader.readAsDataURL(file);
-    document.getElementById('patInitFileLabel').innerText = `✓ تم اختيار: ${file.name}`;
+    document.getElementById('patInitFileLabel').innerText = (currentLang === 'ar' ? `✓ تم اختيار: ` : `✓ Sélectionné: `) + file.name;
 }
 
 function addPatientSimpleModal(e) {
@@ -1007,14 +1007,14 @@ function addPatientSimpleModal(e) {
 
     let existing = db.patientsList.find(item => (item.idCard || '').trim() === idCard);
     if (existing) {
-        alert("رقم بطاقة التعريف مسجل مسبقاً لمريض آخر!");
+        alert(currentLang === 'ar' ? "رقم بطاقة التعريف مسجل مسبقاً لمريض آخر!" : "Numéro de carte d'identité déjà enregistré !");
         return;
     }
 
     let newPatientObj = {
         name, idCard, dob, phone,
         visitsCount: 1,
-        conditionsText: "مسجل جديد",
+        conditionsText: currentLang === 'ar' ? "مسجل جديد" : "Nouveau",
         medicalHistory: { labs: [], imaging: [] }
     };
 
@@ -1022,7 +1022,7 @@ function addPatientSimpleModal(e) {
         let recordObj = {
             date: new Date().toISOString().split('T')[0],
             title: initTitle,
-            result: "ملف مرفق عند التسجيل الأولي بالنظام",
+            result: currentLang === 'ar' ? "ملف مرفق عند التسجيل الأولي بالنظام" : "Fichiers joints à l'inscription",
             fileData: currentPatientInitFileBase64,
             fileName: currentPatientInitFileName || "document.pdf"
         };
@@ -1036,9 +1036,9 @@ function addPatientSimpleModal(e) {
     
     currentPatientInitFileBase64 = null;
     currentPatientInitFileName = "";
-    document.getElementById('patInitFileLabel').innerText = "إرفاق تحليل أو صورة أشعة أولية (اختياري)";
+    document.getElementById('patInitFileLabel').innerText = currentLang === 'ar' ? "إرفاق تحليل أو صورة أشعة أولية (اختياري)" : "Joindre une analyse ou radio initiale (optionnel)";
 
-    showToast("تم تسجيل المريض وملفه الطبي بنجاح!");
+    showToast(currentLang === 'ar' ? "تم تسجيل المريض وملفه الطبي بنجاح!" : "Patient et dossier enregistrés avec succès !");
     logAuditAction(`تسجيل مريض جديد: ${name}`);
 }
 
@@ -1049,7 +1049,7 @@ function openAddExtraFileModal(patientName) {
     document.getElementById('extraFileResult').value = '';
     extraFileBase64 = null;
     extraFileName = "";
-    document.getElementById('extraFilePreviewName').innerText = "اضغط لاختيار الملف الطبي";
+    document.getElementById('extraFilePreviewName').innerText = currentLang === 'ar' ? "اضغط لاختيار الملف الطبي" : "Cliquez pour choisir le fichier";
     document.getElementById('modal-add-patient-file').classList.remove('hidden');
 }
 
@@ -1060,14 +1060,14 @@ function handleExtraFileSelection(event) {
     const reader = new FileReader();
     reader.onload = function(e) { extraFileBase64 = e.target.result; };
     reader.readAsDataURL(file);
-    document.getElementById('extraFilePreviewName').innerText = `✓ تم اختيار: ${file.name}`;
+    document.getElementById('extraFilePreviewName').innerText = (currentLang === 'ar' ? `✓ تم اختيار: ` : `✓ Sélectionné: `) + file.name;
 }
 
 function saveExtraPatientFile(e) {
     e.preventDefault();
     const type = document.getElementById('extraFileType').value;
     const title = document.getElementById('extraFileTitle').value.trim();
-    const result = document.getElementById('extraFileResult').value.trim() || "مرفق طبي إضافي";
+    const result = document.getElementById('extraFileResult').value.trim() || (currentLang === 'ar' ? "مرفق طبي إضافي" : "Pièce jointe supplémentaire");
 
     let patient = db.patientsList.find(p => p.name.trim().toLowerCase() === selectedPatientForExtraFile.trim().toLowerCase());
     if (patient) {
@@ -1091,28 +1091,28 @@ function saveExtraPatientFile(e) {
 
         saveAndSync();
         closeModal('add-patient-file');
-        showToast("✓ تم حفظ وإرفاق الملف الطبي بنجاح للمريض!");
+        showToast(currentLang === 'ar' ? "✓ تم حفظ وإرفاق الملف الطبي بنجاح للمريض!" : "✓ Fichier médical enregistré et joint avec succès !");
         logAuditAction(`إضافة ملف (${title}) للمريض: ${selectedPatientForExtraFile}`);
         
         if (currentPatientInExam && currentPatientInExam.name.toLowerCase() === selectedPatientForExtraFile.toLowerCase()) {
             renderPatientMedicalHistoryInExam(currentPatientInExam.name);
         }
     } else {
-        alert("لم يتم العثور على المريض المحدد!");
+        alert(currentLang === 'ar' ? "لم يتم العثور على المريض المحدد!" : "Patient introuvable !");
     }
 }
 
 // فتح نافذة محرك Gemini AI
 function openGeminiAnalysisModal() {
     if (!currentPatientInExam) {
-        alert("لا يوجد مريض حالياً في غرفة الفحص لتحليله!");
+        alert(currentLang === 'ar' ? "لا يوجد مريض حالياً في غرفة الفحص لتحليله!" : "Aucun patient en examen pour analyse !");
         return;
     }
     geminiTempFileBase64 = null;
     geminiTempFileName = "";
     document.getElementById('geminiPatientUploadInput').value = "";
-    document.getElementById('geminiFileStatusLabel').innerText = "سيتم قراءة هذا المستند مع السجل التراكمي للمريض تلقائياً.";
-    document.getElementById('geminiAnalysisResultBox').innerText = "قم بتحميل مستند المريض (صورة تحليل أو تقرير أشعة PDF) ثم اضغط على (بدء تحليل الملفات واستخراج التشخيص).";
+    document.getElementById('geminiFileStatusLabel').innerText = currentLang === 'ar' ? "سيتم قراءة هذا المستند مع السجل التراكمي للمريض تلقائياً." : "Ce document sera lu avec le dossier cumulé du patient.";
+    document.getElementById('geminiAnalysisResultBox').innerText = currentLang === 'ar' ? "قم بتحميل مستند المريض (صورة تحليل أو تقرير أشعة PDF) ثم اضغط على (بدء تحليل الملفات واستخراج التشخيص)." : "Téléchargez le document du patient puis cliquez sur (Lancer l'analyse).";
     document.getElementById('modal-gemini-ai-assistant').classList.remove('hidden');
 }
 
@@ -1123,7 +1123,7 @@ function handleGeminiFileSelection(event) {
     const reader = new FileReader();
     reader.onload = function(e) {
         geminiTempFileBase64 = e.target.result;
-        document.getElementById('geminiFileStatusLabel').innerText = `✓ تم إرفاق الملف: ${file.name} بنجاح. جاهز للتحليل.`;
+        document.getElementById('geminiFileStatusLabel').innerText = (currentLang === 'ar' ? `✓ تم إرفاق الملف: ` : `✓ Fichier joint: `) + file.name;
     };
     reader.readAsDataURL(file);
 }
@@ -1133,7 +1133,7 @@ function runGeminiAIAnalysis() {
     if (!currentPatientInExam) return;
     
     const resultBox = document.getElementById('geminiAnalysisResultBox');
-    resultBox.innerHTML = `<div class="flex items-center justify-center py-8 text-indigo-700 gap-2 font-bold"><i class="fa-solid fa-brain fa-spin text-lg"></i> محرك Gemini AI يحلل المستندات والسجل الطبي للمريض الآن...</div>`;
+    resultBox.innerHTML = `<div class="flex items-center justify-center py-8 text-indigo-700 gap-2 font-bold"><i class="fa-solid fa-brain fa-spin text-lg"></i> ${currentLang === 'ar' ? 'محرك Gemini AI يحلل المستندات والسجل الطبي للمريض الآن...' : 'Le moteur Gemini AI analyse les documents...'}</div>`;
 
     setTimeout(() => {
         let patName = currentPatientInExam.name;
@@ -1144,25 +1144,33 @@ function runGeminiAIAnalysis() {
         let labs = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.labs) || [];
         let imaging = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.imaging) || [];
 
-        let labsSummary = labs.length > 0 ? labs.map(l => `• تحليل [${l.title}] (${l.date}): ${l.result}`).join('\n') : "لا توجد تحاليل مسجلة مسبقاً.";
-        let imagingSummary = imaging.length > 0 ? imaging.map(img => `• أشعة [${img.title}] (${img.date}): ${img.result}`).join('\n') : "لا توجد صور أشعة مسجلة مسبقاً.";
+        let labsSummary = labs.length > 0 ? labs.map(l => `• Lab [${l.title}] (${l.date}): ${l.result}`).join('\n') : (currentLang === 'ar' ? "لا توجد تحاليل مسجلة مسبقاً." : "Aucune analyse enregistrée.");
+        let imagingSummary = imaging.length > 0 ? imaging.map(img => `• Radio [${img.title}] (${img.date}): ${img.result}`).join('\n') : (currentLang === 'ar' ? "لا توجد صور أشعة مسجلة مسبقاً." : "Aucune imagerie enregistrée.");
 
-        let attachedNote = geminiTempFileName ? `(تم تحليل الملف المرفق حديثاً: ${geminiTempFileName})` : "(تم تحليل سجل المريض التراكمي)";
+        let smartReport = currentLang === 'ar' ? `[تقرير قراءة وتحليل Gemini AI الطبي]:
+المريض: ${patName} | العلامات الحيوية: ضغط الدم (${bp}) - سكر الدم (${sugar} g/L)
 
-        let smartReport = `[تقرير قراءة وتحليل Gemini AI الطبي]:
-المريض: ${patName} | العلامات الحيوية الحالية: ضغط الدم (${bp}) - سكر الدم (${sugar} g/L). ${attachedNote}
-
-🧪 قراءة نتائج التحاليل:
+🧪 نتائج التحاليل:
 ${labsSummary}
 
-🩻 ملاحظات وتقارير الأشعة:
+🩻 تقارير الأشعة:
 ${imagingSummary}
 
 🩺 الخلاصة الإكلينيكية والتشخيص المقترح:
-المؤشرات الحيوية وملفات الفحص المرفقة توضح استقرار الحالة مع وجود ملاحظات طفيفة تتطلب متابعة دورية ووصف العلاج العرضي المناسب.`;
+المؤشرات الحيوية وملفات الفحص المرفقة توضح استقرار الحالة مع وجود ملاحظات طفيفة تتطلب متابعة دورية ووصف العلاج المناسب.` : `[Rapport d'analyse médicale Gemini AI]:
+Patient: ${patName} | Signes vitaux: Tension (${bp}) - Glycémie (${sugar} g/L)
+
+🧪 Analyses:
+${labsSummary}
+
+🩻 Imagerie:
+${imagingSummary}
+
+🩺 Conclusion clinique et diagnostic suggéré:
+Les signes vitaux et examens joints montrent une stabilité avec de légères observations nécessitant un suivi.`;
 
         resultBox.innerText = smartReport;
-        showToast("✓ تم تحليل الملفات بنجاح بواسطة محرك Gemini AI!");
+        showToast(currentLang === 'ar' ? "✓ تم تحليل الملفات بنجاح بواسطة محرك Gemini AI!" : "✓ Fichiers analysés avec succès par Gemini AI !");
         logAuditAction(`تحليل ملفات المريض ${patName} عبر محرك Gemini AI`);
     }, 1200);
 }
@@ -1175,27 +1183,27 @@ function copyGeminiResultToDiagnosis() {
     if (!diagField || !resultBox) return;
 
     let textContent = resultBox.innerText;
-    if (!textContent || textContent.includes("قم بتحميل مستند")) {
-        alert("يرجى إجراء تحليل الملفات أولاً عبر الضغط على زر البدء!");
+    if (!textContent || textContent.includes("قم بتحميل مستند") || textContent.includes("Téléchargez")) {
+        alert(currentLang === 'ar' ? "يرجى إجراء تحليل الملفات أولاً عبر الضغط على زر البدء!" : "Veuillez d'abord lancer l'analyse !");
         return;
     }
 
     diagField.value = textContent;
     localStorage.setItem('tempExamDiagnosis', textContent);
     closeModal('gemini-ai-assistant');
-    showToast("✓ تم نسخ تقرير وتحليل الذكاء الاصطناعي بنجاح إلى حقل التشخيص (Diagnosis)!");
+    showToast(currentLang === 'ar' ? "✓ تم نسخ تقرير وتحليل الذكاء الاصطناعي بنجاح إلى حقل التشخيص (Diagnosis)!" : "✓ Rapport copié dans le champ Diagnostic !");
     logAuditAction(`نسخ تشخيص Gemini للمريض: ${currentPatientInExam.name}`);
 }
 
 function openPatientChartModal(patientName) {
     let patient = db.patientsList.find(p => p.name.trim().toLowerCase() === patientName.trim().toLowerCase());
     if (!patient) {
-        alert("المريض غير موجود!");
+        alert(currentLang === 'ar' ? "المريض غير موجود!" : "Patient introuvable !");
         return;
     }
 
     document.getElementById('chartModalPatientName').innerText = patient.name;
-    document.getElementById('chartModalPatientDetails').innerText = `بطاقة التعريف: ${patient.idCard || '--'} | الهاتف: ${patient.phone || '--'} | الزيارات: ${patient.visitsCount || 1}`;
+    document.getElementById('chartModalPatientDetails').innerText = (currentLang === 'ar' ? `بطاقة التعريف: ` : `ID: `) + (patient.idCard || '--') + ` | ` + (currentLang === 'ar' ? `الهاتف: ` : `Tél: `) + (patient.phone || '--');
 
     const labsBox = document.getElementById('chartModalLabsContainer');
     const imgBox = document.getElementById('chartModalImagingContainer');
@@ -1206,19 +1214,19 @@ function openPatientChartModal(patientName) {
     const imaging = patient.medicalHistory?.imaging || [];
 
     if (labs.length === 0) {
-        labsBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد تحاليل مسجلة لهذا المريض</p>`;
+        labsBox.innerHTML = `<p class="text-gray-400 text-xs py-2">${currentLang === 'ar' ? 'لا توجد تحاليل مسجلة لهذا المريض' : 'Aucune analyse pour ce patient'}</p>`;
     } else {
         labs.forEach(l => {
-            let fileBtn = l.fileData ? `<button onclick="previewMedicalFile('${l.fileData}', '${l.fileName || l.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3.5 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> معاينة الملف / PDF</button>` : '';
+            let fileBtn = l.fileData ? `<button onclick="previewMedicalFile('${l.fileData}', '${l.fileName || l.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3.5 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> ${currentLang==='ar'?'معاينة الملف / PDF':'Aperçu du fichier'}</button>` : '';
             labsBox.innerHTML += `<div class="p-3.5 rounded-2xl border bg-emerald-50/50 text-xs shadow-sm space-y-1"><b class="text-emerald-900 block text-sm">${l.title}</b> <span class="text-gray-500">(${l.date})</span><p class="text-gray-700 font-medium">${l.result}</p>${fileBtn}</div>`;
         });
     }
 
     if (imaging.length === 0) {
-        imgBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد صور أشعة مسجلة لهذا المريض</p>`;
+        imgBox.innerHTML = `<p class="text-gray-400 text-xs py-2">${currentLang === 'ar' ? 'لا توجد صور أشعة مسجلة لهذا المريض' : 'Aucune imagerie pour ce patient'}</p>`;
     } else {
         imaging.forEach(img => {
-            let fileBtn = img.fileData ? `<button onclick="previewMedicalFile('${img.fileData}', '${img.fileName || img.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3.5 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> معاينة الأشعة / PDF</button>` : '';
+            let fileBtn = img.fileData ? `<button onclick="previewMedicalFile('${img.fileData}', '${img.fileName || img.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3.5 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> ${currentLang==='ar'?'معاينة الأشعة / PDF':'Aperçu imagerie'}</button>` : '';
             imgBox.innerHTML += `<div class="p-3.5 rounded-2xl border bg-blue-50/50 text-xs shadow-sm space-y-1"><b class="text-blue-900 block text-sm">${img.title}</b> <span class="text-gray-500">(${img.date})</span><p class="text-gray-700 font-medium">${img.result}</p>${fileBtn}</div>`;
         });
     }
@@ -1233,14 +1241,14 @@ function loadPatients() {
     db.patientsList.forEach((p, i) => {
         let totalFiles = ((p.medicalHistory?.labs?.length || 0) + (p.medicalHistory?.imaging?.length || 0));
         let editControls = currentUserRole === 'admin' ? `
-            <button onclick="openPatientChartModal('${p.name}')" class="bg-indigo-50 border text-indigo-700 px-2.5 py-1.5 rounded-xl text-xs font-bold" title="الاطلاع على الملف الطبي"><i class="fa-solid fa-folder-open"></i> الملف</button>
-            <button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2.5 py-1.5 rounded-xl text-xs font-bold" title="إضافة تحليل أو أشعة"><i class="fa-solid fa-file-medical"></i> + ملف</button>
-            <button id="p-edit-btn-${i}" onclick="enablePatientEdit(${i})" class="bg-blue-50 border text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-pen-to-square"></i> تعديل</button>
-            <button id="p-save-btn-${i}" onclick="savePatientEdit(${i})" class="hidden bg-emerald-50 border text-emerald-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-floppy-disk"></i> حفظ</button>
+            <button onclick="openPatientChartModal('${p.name}')" class="bg-indigo-50 border text-indigo-700 px-2.5 py-1.5 rounded-xl text-xs font-bold" title="${currentLang==='ar'?'الملف الطبي':'Dossier'}"><i class="fa-solid fa-folder-open"></i> ${currentLang==='ar'?'الملف':'Dossier'}</button>
+            <button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2.5 py-1.5 rounded-xl text-xs font-bold" title="${currentLang==='ar'?'إضافة ملف':'Ajouter fichier'}"><i class="fa-solid fa-file-medical"></i> + ${currentLang==='ar'?'ملف':'Fichier'}</button>
+            <button id="p-edit-btn-${i}" onclick="enablePatientEdit(${i})" class="bg-blue-50 border text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-pen-to-square"></i> ${currentLang==='ar'?'تعديل':'Modifier'}</button>
+            <button id="p-save-btn-${i}" onclick="savePatientEdit(${i})" class="hidden bg-emerald-50 border text-emerald-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-floppy-disk"></i> ${currentLang==='ar'?'حفظ':'Enregistrer'}</button>
             <button onclick="deletePatient(${i})" class="text-red-500 font-bold px-1.5"><i class="fa-solid fa-trash"></i></button>
         ` : `
-            <button onclick="openPatientChartModal('${p.name}')" class="bg-indigo-50 border text-indigo-700 px-2.5 py-1.5 rounded-xl text-xs font-bold" title="الاطلاع على الملف الطبي"><i class="fa-solid fa-folder-open"></i> الملف</button>
-            <button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2.5 py-1.5 rounded-xl text-xs font-bold" title="إضافة تحليل أو أشعة"><i class="fa-solid fa-file-medical"></i> + ملف</button>
+            <button onclick="openPatientChartModal('${p.name}')" class="bg-indigo-50 border text-indigo-700 px-2.5 py-1.5 rounded-xl text-xs font-bold" title="${currentLang==='ar'?'الملف الطبي':'Dossier'}"><i class="fa-solid fa-folder-open"></i> ${currentLang==='ar'?'الملف':'Dossier'}</button>
+            <button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2.5 py-1.5 rounded-xl text-xs font-bold" title="${currentLang==='ar'?'إضافة ملف':'Ajouter fichier'}"><i class="fa-solid fa-file-medical"></i> + ${currentLang==='ar'?'ملف':'Fichier'}</button>
         `;
 
         tb.innerHTML += `
@@ -1249,8 +1257,8 @@ function loadPatients() {
                 <td class="py-3 text-gray-600 font-bold"><input type="text" id="p-idcard-${i}" value="${p.idCard || '--'}" class="border rounded-xl px-2 py-1.5 text-xs bg-gray-50 w-28" disabled></td>
                 <td class="py-3 text-gray-500"><input type="date" id="p-dob-${i}" value="${p.dob}" class="border rounded-xl px-2 py-1.5 text-xs bg-gray-50" disabled></td>
                 <td class="py-3 text-gray-500"><input type="text" id="p-phone-${i}" value="${p.phone}" class="border rounded-xl px-2 py-1.5 text-xs bg-gray-50 w-28" disabled></td>
-                <td class="py-3"><span class="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-xl text-xs font-bold">${p.conditionsText || 'مسجل'}</span></td>
-                <td class="py-3 text-cyan-700 font-bold text-xs"><i class="fa-solid fa-folder"></i> ${totalFiles} ملفات</td>
+                <td class="py-3"><span class="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-xl text-xs font-bold">${p.conditionsText || (currentLang==='ar'?'مسجل':'Enregistré')}</span></td>
+                <td class="py-3 text-cyan-700 font-bold text-xs"><i class="fa-solid fa-folder"></i> ${totalFiles} ${currentLang==='ar'?'ملفات':'fichiers'}</td>
                 <td class="py-3 flex items-center gap-2">${editControls}</td>
             </tr>
         `;
@@ -1258,7 +1266,7 @@ function loadPatients() {
 }
 
 function enablePatientEdit(i) {
-    if (currentUserRole !== 'admin') { alert("للمسؤول فقط!"); return; }
+    if (currentUserRole !== 'admin') { alert(currentLang === 'ar' ? "للمسؤول فقط!" : "Réservé à l'admin !"); return; }
     document.getElementById(`p-name-${i}`).removeAttribute('disabled');
     document.getElementById(`p-idcard-${i}`).removeAttribute('disabled');
     document.getElementById(`p-dob-${i}`).removeAttribute('disabled');
@@ -1274,7 +1282,7 @@ function savePatientEdit(i) {
         db.patientsList[i].dob = document.getElementById(`p-dob-${i}`).value;
         db.patientsList[i].phone = document.getElementById(`p-phone-${i}`).value;
         saveAndSync();
-        showToast("تم الحفظ!");
+        showToast(currentLang === 'ar' ? "تم الحفظ!" : "Enregistré !");
         logAuditAction(`تعديل بيانات مريض رقم ${i}`);
     }
 }
@@ -1282,7 +1290,7 @@ function savePatientEdit(i) {
 function deletePatient(i) {
     db.patientsList.splice(i, 1);
     saveAndSync();
-    showToast("تم الحذف");
+    showToast(currentLang === 'ar' ? "تم الحذف" : "Supprimé");
     logAuditAction("حذف مريض");
 }
 
@@ -1292,10 +1300,10 @@ function renderStaffManagementTable() {
     tb.innerHTML = '';
     db.staffList.forEach((s, i) => {
         let editControls = currentUserRole === 'admin' ? `
-            <button id="st-edit-btn-${i}" onclick="enableStaffMemberEdit(${i})" class="bg-blue-50 border text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-pen"></i> تعديل</button>
-            <button id="st-save-btn-${i}" onclick="saveStaffMemberEdit(${i})" class="hidden bg-emerald-50 border text-emerald-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-floppy-disk"></i> حفظ</button>
+            <button id="st-edit-btn-${i}" onclick="enableStaffMemberEdit(${i})" class="bg-blue-50 border text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-pen"></i> ${currentLang==='ar'?'تعديل':'Modifier'}</button>
+            <button id="st-save-btn-${i}" onclick="saveStaffMemberEdit(${i})" class="hidden bg-emerald-50 border text-emerald-600 px-3 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-floppy-disk"></i> ${currentLang==='ar'?'حفظ':'Enregistrer'}</button>
             <button onclick="deleteStaffMember(${i})" class="text-red-500 font-bold px-1.5"><i class="fa-solid fa-trash"></i></button>
-        ` : `<span class="text-xs text-gray-400">للمسؤول فقط</span>`;
+        ` : `<span class="text-xs text-gray-400">${currentLang==='ar'?'للمسؤول فقط':'Admin seulement'}</span>`;
 
         tb.innerHTML += `
             <tr>
@@ -1304,9 +1312,9 @@ function renderStaffManagementTable() {
                 <td class="p-3"><input type="text" id="st-pass-${i}" value="${s.password}" class="border rounded-xl px-2 py-1.5 text-xs bg-gray-50 w-24" disabled></td>
                 <td class="p-3">
                     <select id="st-role-${i}" class="border rounded-xl px-2 py-1.5 text-xs bg-gray-50" disabled>
-                        <option value="admin" ${s.role==='admin'?'selected':''}>مدير</option>
-                        <option value="doctor" ${s.role==='doctor'?'selected':''}>طبيب</option>
-                        <option value="receptionist" ${s.role==='receptionist'?'selected':''}>استقبال</option>
+                        <option value="admin" ${s.role==='admin'?'selected':''}>${currentLang==='ar'?'مدير':'Admin'}</option>
+                        <option value="doctor" ${s.role==='doctor'?'selected':''}>${currentLang==='ar'?'طبيب':'Médecin'}</option>
+                        <option value="receptionist" ${s.role==='receptionist'?'selected':''}>${currentLang==='ar'?'استقبال':'Accueil'}</option>
                     </select>
                 </td>
                 <td class="p-3 flex items-center gap-2">${editControls}</td>
@@ -1316,7 +1324,7 @@ function renderStaffManagementTable() {
 }
 
 function enableStaffMemberEdit(i) {
-    if (currentUserRole !== 'admin') { alert("للمسؤول فقط!"); return; }
+    if (currentUserRole !== 'admin') { alert(currentLang === 'ar' ? "للمسؤول فقط!" : "Réservé à l'admin !"); return; }
     document.getElementById(`st-name-${i}`).removeAttribute('disabled');
     document.getElementById(`st-user-${i}`).removeAttribute('disabled');
     document.getElementById(`st-pass-${i}`).removeAttribute('disabled');
@@ -1332,16 +1340,16 @@ function saveStaffMemberEdit(i) {
         db.staffList[i].password = document.getElementById(`st-pass-${i}`).value;
         db.staffList[i].role = document.getElementById(`st-role-${i}`).value;
         saveAndSync();
-        showToast("تم الحفظ بنجاح!");
+        showToast(currentLang === 'ar' ? "تم الحفظ بنجاح!" : "Enregistré avec succès !");
         logAuditAction(`تعديل بيانات المستخدم: ${db.staffList[i].name}`);
     }
 }
 
 function deleteStaffMember(i) {
-    if (db.staffList.length <= 1) { alert("لا يمكن حذف المسؤول الأخير!"); return; }
+    if (db.staffList.length <= 1) { alert(currentLang === 'ar' ? "لا يمكن حذف المسؤول الأخير!" : "Impossible de supprimer le dernier admin !"); return; }
     db.staffList.splice(i, 1);
     saveAndSync();
-    showToast("تم الحذف");
+    showToast(currentLang === 'ar' ? "تم الحذف" : "Supprimé");
     logAuditAction("حذف مستخدم");
 }
 
@@ -1358,7 +1366,7 @@ function loadDoctors() {
 function deleteDoctor(i) {
     db.doctorsList.splice(i, 1);
     saveAndSync();
-    showToast("تم الحذف");
+    showToast(currentLang === 'ar' ? "تم الحذف" : "Supprimé");
     logAuditAction("حذف طبيب");
 }
 
@@ -1374,7 +1382,7 @@ function loadAppointments() {
 function deleteAppointment(i) {
     db.appointments.splice(i, 1);
     saveAndSync();
-    showToast("تم الحذف");
+    showToast(currentLang === 'ar' ? "تم الحذف" : "Supprimé");
     logAuditAction("حذف موعد");
 }
 
@@ -1393,7 +1401,7 @@ function loadInvoices() {
 function deleteInvoice(i) {
     db.invoicesList.splice(i, 1);
     saveAndSync();
-    showToast("تم الحذف");
+    showToast(currentLang === 'ar' ? "تم الحذف" : "Supprimé");
     logAuditAction("حذف فاتورة");
 }
 
@@ -1433,16 +1441,16 @@ function addDoctor(e) {
     db.doctorsList.push({ name: document.getElementById('dName').value, specialty: document.getElementById('dSpec').value, shift: "8ص - 4م", phone: "0500000000" });
     saveAndSync();
     closeModal('simple');
-    showToast("تم حفظ الطبيب");
+    showToast(currentLang === 'ar' ? "تم حفظ الطبيب" : "Médecin enregistré");
     logAuditAction(`إضافة طبيب: ${document.getElementById('dName').value}`);
 }
 
 function addAppointment(e) {
     e.preventDefault();
-    db.appointments.push({ name: document.getElementById('aPat').value, doctor: document.getElementById('aDoc').value, date: document.getElementById('aDate').value, status: "مؤكد" });
+    db.appointments.push({ name: document.getElementById('aPat').value, doctor: document.getElementById('aDoc').value, date: document.getElementById('aDate').value, status: currentLang === 'ar' ? "مؤكد" : "Confirmé" });
     saveAndSync();
     closeModal('simple');
-    showToast("تم حجز الموعد");
+    showToast(currentLang === 'ar' ? "تم حجز الموعد" : "Rendez-vous réservé");
     logAuditAction(`حجز موعد: ${document.getElementById('aPat').value}`);
 }
 
@@ -1451,18 +1459,18 @@ function addStaff(e) {
     db.staffList.push({ name: document.getElementById('sName').value, username: document.getElementById('sUser').value, password: document.getElementById('sPass').value, role: document.getElementById('sRole').value, allowedTabs: ['dashboard', 'reception', 'appointments', 'patients', 'invoices', 'prescriptions'] });
     saveAndSync();
     closeModal('simple');
-    showToast("تم إنشاء الموظف");
+    showToast(currentLang === 'ar' ? "تم إنشاء الموظف" : "Employé créé");
     logAuditAction(`إنشاء موظف: ${document.getElementById('sName').value}`);
 }
 
 function saveInvoice(e) {
     e.preventDefault();
-    let patName = document.getElementById('invPatientSelect').value || "مريض عام";
+    let patName = document.getElementById('invPatientSelect').value || (currentLang === 'ar' ? "مريض عام" : "Patient général");
     let fee = parseFloat(document.getElementById('invConsultFee').value) || 30;
-    db.invoicesList.push({ invNum: "INV-" + (1000 + db.invoicesList.length + 1), patient: patName, service: "كشفية زيارة", amount: fee, status: "مدفوع" });
+    db.invoicesList.push({ invNum: "INV-" + (1000 + db.invoicesList.length + 1), patient: patName, service: currentLang === 'ar' ? "كشفية زيارة" : "Consultation", amount: fee, status: currentLang === 'ar' ? "مدفوع" : "Payé" });
     saveAndSync();
     closeModal('invoice');
-    showToast("تم إصدار الفاتورة");
+    showToast(currentLang === 'ar' ? "تم إصدار الفاتورة" : "Facture émise");
     logAuditAction(`إصدار فاتورة للمريض: ${patName}`);
 }
 
@@ -1482,8 +1490,8 @@ function loadClinicSettingsInputs() {
 
 function saveClinicSettings(e) {
     e.preventDefault();
-    if (currentUserRole !== 'admin') { alert("للمسؤول فقط!"); return; }
-    showToast("تم حفظ الإعدادات بنجاح!");
+    if (currentUserRole !== 'admin') { alert(currentLang === 'ar' ? "للمسؤول فقط!" : "Réservé à l'admin !"); return; }
+    showToast(currentLang === 'ar' ? "تم حفظ الإعدادات بنجاح!" : "Paramètres enregistrés avec succès !");
     logAuditAction("تحديث إعدادات النظام");
 }
 
@@ -1493,7 +1501,7 @@ function exportDatabaseBackup() {
     dlAnchorElem.setAttribute("href", dataStr);
     dlAnchorElem.setAttribute("download", "clinic_backup_" + new Date().toISOString().split('T')[0] + ".json");
     dlAnchorElem.click();
-    showToast("تم تصدير النسخة الاحتياطية");
+    showToast(currentLang === 'ar' ? "تم تصدير النسخة الاحتياطية" : "Sauvegarde exportée");
 }
 
 function importDatabaseBackup(event) {
@@ -1504,9 +1512,9 @@ function importDatabaseBackup(event) {
         try {
             db = JSON.parse(e.target.result);
             saveAndSync();
-            showToast("تم استرجاع النسخة الاحتياطية بنجاح!");
+            showToast(currentLang === 'ar' ? "تم استرجاع النسخة الاحتياطية بنجاح!" : "Sauvegarde restaurée avec succès !");
         } catch(err) {
-            alert("الملف غير صالح!");
+            alert(currentLang === 'ar' ? "الملف غير صالح!" : "Fichier invalide !");
         }
     };
     reader.readAsText(file);
@@ -1516,8 +1524,8 @@ function addDrugToTemplateList() {
     let drugName = document.getElementById('prescDrugName').value.trim();
     let doses = document.getElementById('prescDoses').value;
     let time = document.getElementById('prescTime').value;
-    let duration = document.getElementById('prescDuration').value.trim() || "5 أيام";
-    if (!drugName) { alert("أدخل اسم الدواء أولاً!"); return; }
+    let duration = document.getElementById('prescDuration').value.trim() || (currentLang === 'ar' ? "5 أيام" : "5 jours");
+    if (!drugName) { alert(currentLang === 'ar' ? "أدخل اسم الدواء أولاً!" : "Entrez le nom du médicament !"); return; }
     currentPrescriptionItems.push({ drugName, doses, time, duration });
     document.getElementById('prescDrugName').value = '';
     document.getElementById('prescDuration').value = '';
@@ -1529,14 +1537,14 @@ function renderCurrentPrescriptionTable() {
     let hiddenText = document.getElementById('examPrescriptionText');
     if (!tb) return;
     if (currentPrescriptionItems.length === 0) {
-        tb.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-gray-400">لم يتم إضافة أدوية للوصفة بعد</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-gray-400">${currentLang === 'ar' ? 'لم يتم إضافة أدوية للوصفة بعد' : 'Aucun médicament ajouté'}</td></tr>`;
         hiddenText.value = "";
         return;
     }
     tb.innerHTML = '';
     let formattedTextLines = [];
     currentPrescriptionItems.forEach((item, index) => {
-        formattedTextLines.push(`- ${item.drugName} | الجرعة: ${item.doses} | الوقت: ${item.time} | المدة: ${item.duration}`);
+        formattedTextLines.push(`- ${item.drugName} | ${currentLang==='ar'?'الجرعة':'Dose'}: ${item.doses} | ${currentLang==='ar'?'الوقت':'Moment'}: ${item.time} | ${currentLang==='ar'?'المدة':'Durée'}: ${item.duration}`);
         tb.innerHTML += `
             <tr>
                 <td class="p-2.5 font-bold text-purple-950">${item.drugName}</td>
@@ -1557,45 +1565,45 @@ function removeDrugFromTemplate(index) {
 
 function saveAndDispensePrescription() {
     let prescText = document.getElementById('examPrescriptionText').value.trim();
-    if (!prescText) { alert("أضف أدوية للوصفة أولاً قبيل الصرف!"); return; }
-    let patName = currentPatientInExam ? currentPatientInExam.name : "مريض عام";
+    if (!prescText) { alert(currentLang === 'ar' ? "أضف أدوية للوصفة أولاً قبيل الصرف!" : "Ajoutez des médicaments avant délivrance !"); return; }
+    let patName = currentPatientInExam ? currentPatientInExam.name : (currentLang === 'ar' ? "مريض عام" : "Patient général");
 
     db.prescriptionsList.unshift({
         patient: patName,
         doctor: currentPatientInExam ? currentPatientInExam.doctor : currentUsername,
         date: new Date().toLocaleDateString(),
         medications: prescText,
-        status: "تم الصرف"
+        status: currentLang === 'ar' ? "تم الصرف" : "Délivré"
     });
     saveAndSync();
-    showToast("تم صرف الوصفة الطبية بنجاح!");
+    showToast(currentLang === 'ar' ? "تم صرف الوصفة الطبية بنجاح!" : "Ordonnance délivrée avec succès !");
     logAuditAction(`صرف وصفة للمريض: ${patName}`);
     currentPrescriptionItems = [];
     renderCurrentPrescriptionTable();
 }
 
 function printPrescriptionReport() {
-    let patName = currentPatientInExam ? currentPatientInExam.name : "غير محدد";
-    let diag = document.getElementById('examDiagnosis').value || "غير مدون";
-    let proc = document.getElementById('examProcedure').value || "غير مدون";
-    let presc = document.getElementById('examPrescriptionText').value || "لا توجد أدوية";
+    let patName = currentPatientInExam ? currentPatientInExam.name : (currentLang === 'ar' ? "غير محدد" : "Non spécifié");
+    let diag = document.getElementById('examDiagnosis').value || (currentLang === 'ar' ? "غير مدون" : "Non renseigné");
+    let proc = document.getElementById('examProcedure').value || (currentLang === 'ar' ? "غير مدون" : "Non renseigné");
+    let presc = document.getElementById('examPrescriptionText').value || (currentLang === 'ar' ? "لا توجد أدوية" : "Aucun médicament");
     
     let printWindow = window.open('', '_printWindow', 'width=800,height=600');
     printWindow.document.write(`
-        <html dir="rtl">
-        <head><title>تقرير ووصفة طبية</title>
+        <html dir="${currentLang === 'ar' ? 'rtl' : 'ltr'}">
+        <head><title>${currentLang === 'ar' ? 'تقرير ووصفة طبية' : 'Rapport & Ordonnance'}</title>
         <style>body{font-family:Tahoma;padding:20px;color:#333;} h2{color:#0097b2;border-bottom:2px solid #0097b2;padding-bottom:10px;}</style>
         </head>
         <body onload="window.print();window.close()">
-            <h2>عيادات الأسرة الطبية | تقرير الفحص والوصفة</h2>
-            <p><b>اسم المريض:</b> ${patName}</p>
-            <p><b>التاريخ:</b> ${new Date().toLocaleDateString()}</p>
+            <h2>${currentLang === 'ar' ? 'عيادات الأسرة الطبية | تقرير الفحص والوصفة' : 'Clinique Familiale | Rapport d\'Examen & Ordonnance'}</h2>
+            <p><b>${currentLang === 'ar' ? 'اسم المريض:' : 'Nom du patient:'}</b> ${patName}</p>
+            <p><b>${currentLang === 'ar' ? 'التاريخ:' : 'Date:'}</b> ${new Date().toLocaleDateString()}</p>
             <hr/>
-            <p><b>التشخيص:</b><br/>${diag}</p>
-            <p><b>الإجراءات:</b><br/>${proc}</p>
-            <p><b>الوصفة الطبية:</b><br/>${presc.replace(/\n/g, '<br/>')}</p>
+            <p><b>${currentLang === 'ar' ? 'التشخيص:' : 'Diagnostic:'}</b><br/>${diag}</p>
+            <p><b>${currentLang === 'ar' ? 'الإجراءات:' : 'Procédures:'}</b><br/>${proc}</p>
+            <p><b>${currentLang === 'ar' ? 'الوصفة الطبية:' : 'Ordonnance:'}</b><br/>${presc.replace(/\n/g, '<br/>')}</p>
             <br/><br/>
-            <div style="text-align: left;"><b>ختم الطبيب المعالج</b></div>
+            <div style="text-align: ${currentLang === 'ar' ? 'left' : 'right'};"><b>${currentLang === 'ar' ? 'ختم الطبيب المعالج' : 'Cachet du Médecin'}</b></div>
         </body>
         </html>
     `);
@@ -1629,22 +1637,22 @@ function renderPatientMedicalHistoryInExam(patientName) {
     const labs = (patient && patient.medicalHistory && patient.medicalHistory.labs) || [];
     const imaging = (patient && patient.medicalHistory && patient.medicalHistory.imaging) || [];
 
-    if (labs.length === 0) labsBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد تحاليل مسجلة</p>`;
+    if (labs.length === 0) labsBox.innerHTML = `<p class="text-gray-400 text-xs py-2">${currentLang === 'ar' ? 'لا توجد تحاليل مسجلة' : 'Aucune analyse enregistrée'}</p>`;
     else labs.forEach(l => {
-        let fileBtn = l.fileData ? `<button onclick="previewMedicalFile('${l.fileData}', '${l.fileName || l.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> معاينة الملف / PDF</button>` : '';
+        let fileBtn = l.fileData ? `<button onclick="previewMedicalFile('${l.fileData}', '${l.fileName || l.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> ${currentLang==='ar'?'معاينة الملف / PDF':'Aperçu / PDF'}</button>` : '';
         labsBox.innerHTML += `<div class="p-3 rounded-2xl border bg-emerald-50 text-xs shadow-sm space-y-1"><b class="text-emerald-900 block">${l.title}</b> <span class="text-gray-500">(${l.date})</span><p class="text-gray-600">${l.result}</p>${fileBtn}</div>`;
     });
 
-    if (imaging.length === 0) imgBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد صور أشعة مسجلة</p>`;
+    if (imaging.length === 0) imgBox.innerHTML = `<p class="text-gray-400 text-xs py-2">${currentLang === 'ar' ? 'لا توجد صور أشعة مسجلة' : 'Aucune imagerie enregistrée'}</p>`;
     else imaging.forEach(img => {
-        let fileBtn = img.fileData ? `<button onclick="previewMedicalFile('${img.fileData}', '${img.fileName || img.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> معاينة الأشعة / PDF</button>` : '';
+        let fileBtn = img.fileData ? `<button onclick="previewMedicalFile('${img.fileData}', '${img.fileName || img.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> ${currentLang==='ar'?'معاينة الأشعة / PDF':'Aperçu / PDF'}</button>` : '';
         imgBox.innerHTML += `<div class="p-3 rounded-2xl border bg-blue-50 text-xs shadow-sm space-y-1"><b class="text-blue-900 block">${img.title}</b> <span class="text-gray-500">(${img.date})</span><p class="text-gray-600">${img.result}</p>${fileBtn}</div>`;
     });
 }
 
 function openAddMedicalRecordModal() {
     let patName = currentPatientInExam ? currentPatientInExam.name : "";
-    if (!patName) { alert("اختر مريضاً أولاً!"); return; }
+    if (!patName) { alert(currentLang === 'ar' ? "اختر مريضاً أولاً!" : "Sélectionnez un patient d'abord !"); return; }
     document.getElementById('medRecPatientName').value = patName;
     document.getElementById('medRecDate').value = new Date().toISOString().split('T')[0];
     clearSelectedFile();
@@ -1668,13 +1676,13 @@ function savePatientMedicalRecordWithFile(e) {
         saveAndSync();
         closeModal('medical-record');
         if (currentPatientInExam && currentPatientInExam.name === patName) renderPatientMedicalHistoryInExam(patName);
-        showToast("تم الحفظ بنجاح!");
+        showToast(currentLang === 'ar' ? "تم الحفظ بنجاح!" : "Enregistré avec succès !");
     }
 }
 
 function resetClinicData() {
-    if (currentUserRole !== 'admin') { alert("للمسؤول فقط!"); return; }
-    let conf = confirm("تحذير: هل أنت متأكد من مسح وتصفير معطيات العيادة؟");
+    if (currentUserRole !== 'admin') { alert(currentLang === 'ar' ? "للمسؤول فقط!" : "Réservé à l'admin !"); return; }
+    let conf = confirm(currentLang === 'ar' ? "تحذير: هل أنت متأكد من مسح وتصفير معطيات العيادة؟" : "Attention : Voulez-vous vraiment réinitialiser les données ?");
     if (conf) {
         db.patientsList = [];
         db.appointments = [];
@@ -1682,6 +1690,6 @@ function resetClinicData() {
         db.triageQueue = [];
         db.prescriptionsList = [];
         saveAndSync();
-        showToast("تم التصفير بنجاح!");
+        showToast(currentLang === 'ar' ? "تم التصفير بنجاح!" : "Réinitialisé avec succès !");
     }
 }
