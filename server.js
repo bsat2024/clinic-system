@@ -36,7 +36,7 @@ if (fs.existsSync(DB_FILE)) {
             clinicDatabase = parsed;
         }
     } catch (e) {
-        console.log("خطأ في قراءة ملف قاعدة البيانات الدائمة.");
+        console.log("خطأ في قراءة ملف قاعدة البيانات.");
     }
 }
 
@@ -76,15 +76,18 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-    // إرسال أحدث نسخة فور اتصال أي موظف (استقبال أو مدير)
+    // إرسال القاعدة الحالية فوراً للعميل المتصل
     socket.emit('sync-clinic-data', clinicDatabase);
 
-    // استقبال البيانات من الاستقبال أو المدير ودمجها بدقة تامة وبثها لكافة الأطراف
+    // استقبال البيانات وتحديث السيرفر وبثها لكل العملاء المتصلين بدون استثناء
     socket.on('update-clinic-data', (incomingData) => {
         if (incomingData) {
-            if (incomingData.patientsList) {
+            if (incomingData.patientsList && Array.isArray(incomingData.patientsList)) {
                 incomingData.patientsList.forEach(incPat => {
-                    let exists = clinicDatabase.patientsList.find(p => (p.idCard && p.idCard.trim() === incPat.idCard?.trim()) || p.name.trim().toLowerCase() === incPat.name.trim().toLowerCase());
+                    let exists = clinicDatabase.patientsList.find(p => 
+                        (p.idCard && incPat.idCard && p.idCard.trim() === incPat.idCard.trim()) || 
+                        (p.name && incPat.name && p.name.trim().toLowerCase() === incPat.name.trim().toLowerCase())
+                    );
                     if (!exists) {
                         clinicDatabase.patientsList.push(incPat);
                     } else {
@@ -138,7 +141,7 @@ io.on('connection', (socket) => {
 
             saveDatabaseToFile();
             
-            // بث مباشر وثطبيقي لكافة الأجهزة والواجهات المفتوحة
+            // بث التحديث الفوري إلى كافة شاشات الاستقبال والمدير والطبيب
             io.emit('sync-clinic-data', clinicDatabase);
         }
     });

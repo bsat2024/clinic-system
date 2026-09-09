@@ -56,12 +56,14 @@ try {
         }
     });
     
-    // المزامنة الفورية الشاملة بين الاستقبال والمدير والطبيب
+    // استقبال التحديثات من السيرفر وتحديث الواجهة فوراً ودون مسح البيانات المحلية
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData && serverData.patientsList) {
-            // دمج شامل يضمن عدم اختفاء أي مريض أو تعديل من أي طرف
             serverData.patientsList.forEach(sPat => {
-                let localPat = db.patientsList.find(p => (p.idCard && p.idCard.trim() === sPat.idCard?.trim()) || p.name.trim().toLowerCase() === sPat.name.trim().toLowerCase());
+                let localPat = db.patientsList.find(p => 
+                    (p.idCard && sPat.idCard && p.idCard.trim() === sPat.idCard.trim()) || 
+                    (p.name && sPat.name && p.name.trim().toLowerCase() === sPat.name.trim().toLowerCase())
+                );
                 if (!localPat) {
                     db.patientsList.push(sPat);
                 } else {
@@ -118,7 +120,14 @@ async function fetchServerDataInitial() {
         if (res.ok) {
             let serverData = await res.json();
             if (serverData && serverData.patientsList) {
-                db = serverData;
+                serverData.patientsList.forEach(sPat => {
+                    let localPat = db.patientsList.find(p => 
+                        (p.idCard && sPat.idCard && p.idCard.trim() === sPat.idCard.trim()) || 
+                        (p.name && sPat.name && p.name.trim().toLowerCase() === sPat.name.trim().toLowerCase())
+                    );
+                    if (!localPat) db.patientsList.push(sPat);
+                });
+                if (serverData.triageQueue) db.triageQueue = serverData.triageQueue;
                 if (serverData.currentPatientInExam !== undefined) {
                     currentPatientInExam = serverData.currentPatientInExam;
                     if (currentPatientInExam) localStorage.setItem('currentPatientInExam', JSON.stringify(currentPatientInExam));
@@ -142,7 +151,7 @@ function saveAndSync() {
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });
-        showToast("✓ تم الحفظ والمزامنة الفورية مع جميع الأطراف");
+        showToast("✓ تم الحفظ والمزامنة الفورية");
     } else {
         showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان");
     }
