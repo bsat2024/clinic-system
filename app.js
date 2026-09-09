@@ -56,11 +56,37 @@ try {
         }
     });
     
-    // المزامنة التلقائية واللحظية لكافة الأطراف (استقبال، مدير، طبيب)
+    // دمج البيانات الواردة من السيرفر بذكاء لمنع مسح أو اختفاء أي تعديل محلي
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData && serverData.patientsList) {
-            db = serverData; // اعتماد أحدث نسخة موحدة من السيرفر لضمان التطابق التام
+            serverData.patientsList.forEach(sPat => {
+                let localPat = db.patientsList.find(p => (p.idCard && p.idCard.trim() === sPat.idCard?.trim()) || p.name.trim().toLowerCase() === sPat.name.trim().toLowerCase());
+                if (!localPat) {
+                    db.patientsList.push(sPat);
+                } else if (sPat.medicalHistory) {
+                    if (!localPat.medicalHistory) localPat.medicalHistory = { labs: [], imaging: [] };
+                    sPat.medicalHistory.labs?.forEach(l => {
+                        if (!localPat.medicalHistory.labs.some(x => x.title === l.title && x.date === l.date)) {
+                            localPat.medicalHistory.labs.push(l);
+                        }
+                    });
+                    sPat.medicalHistory.imaging?.forEach(img => {
+                        if (!localPat.medicalHistory.imaging.some(x => x.title === img.title && x.date === img.date)) {
+                            localPat.medicalHistory.imaging.push(img);
+                        }
+                    });
+                }
+            });
+
+            db.triageQueue = serverData.triageQueue || [];
             
+            serverData.invoicesList.forEach(inv => {
+                if (!db.invoicesList.some(i => i.invNum === inv.invNum)) db.invoicesList.push(inv);
+            });
+            serverData.appointments.forEach(app => {
+                if (!db.appointments.some(a => a.name === app.name && a.date === app.date)) db.appointments.push(app);
+            });
+
             if (serverData.currentPatientInExam !== undefined) {
                 currentPatientInExam = serverData.currentPatientInExam;
                 if (currentPatientInExam) {
@@ -86,7 +112,12 @@ async function fetchServerDataInitial() {
         if (res.ok) {
             let serverData = await res.json();
             if (serverData && serverData.patientsList) {
-                db = serverData;
+                // دمج البيانات الأولية مع الذاكرة المحلية
+                serverData.patientsList.forEach(sPat => {
+                    let localPat = db.patientsList.find(p => (p.idCard && p.idCard.trim() === sPat.idCard?.trim()) || p.name.trim().toLowerCase() === sPat.name.trim().toLowerCase());
+                    if (!localPat) db.patientsList.push(sPat);
+                });
+                if (serverData.triageQueue && serverData.triageQueue.length > 0) db.triageQueue = serverData.triageQueue;
                 if (serverData.currentPatientInExam !== undefined) {
                     currentPatientInExam = serverData.currentPatientInExam;
                     if (currentPatientInExam) localStorage.setItem('currentPatientInExam', JSON.stringify(currentPatientInExam));
@@ -96,7 +127,7 @@ async function fetchServerDataInitial() {
             }
         }
     } catch(err) {
-        console.log("العمل بالوضع المحلي");
+        console.log("العمل بالوضع المحلي الفردي");
     }
 }
 
@@ -110,7 +141,7 @@ function saveAndSync() {
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });
-        showToast("✓ تم الحفظ والمزامنة الفورية مع جميع الأطراف");
+        showToast("✓ تم الحفظ والمزامنة الفورية بين الاستقبال والإدارة");
     } else {
         showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان");
     }

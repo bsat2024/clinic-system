@@ -28,12 +28,16 @@ let clinicDatabase = {
     currentPatientInExam: null
 };
 
+// قراءة قاعدة البيانات الدائمة من القرص الصلب إن وجدت
 if (fs.existsSync(DB_FILE)) {
     try {
         const savedData = fs.readFileSync(DB_FILE, 'utf8');
-        clinicDatabase = JSON.parse(savedData);
+        let parsed = JSON.parse(savedData);
+        if (parsed && parsed.patientsList) {
+            clinicDatabase = parsed;
+        }
     } catch (e) {
-        console.log("خطأ في قراءة ملف قاعدة البيانات، استخدام الافتراضي.");
+        console.log("خطأ في قراءة ملف قاعدة البيانات الدائمة.");
     }
 }
 
@@ -73,45 +77,68 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-    // إرسال البيانات فور اتصال أي جهاز (مدير أو استقبال أو طبيب)
+    // إرسال الحالة الحالية فور اتصال الاستقبال أو المدير أو الطبيب
     socket.emit('sync-clinic-data', clinicDatabase);
 
-    // استقبال أي تحديث ودمجه وبثه فورا لجميع الأجهزة المتصلة بدون استثناء
+    // استقبال التحديثات ودمجها بذكاء تام وحفظها فوراً على السيرفر
     socket.on('update-clinic-data', (incomingData) => {
         if (incomingData) {
+            // دمج المرضى (منع التكرار والحفاظ على كافة الملفات الطبية المرفقة)
             if (incomingData.patientsList) {
                 incomingData.patientsList.forEach(incPat => {
-                    let exists = clinicDatabase.patientsList.find(p => (p.idCard && p.idCard === incPat.idCard) || p.name === incPat.name);
+                    let exists = clinicDatabase.patientsList.find(p => (p.idCard && p.idCard.trim() === incPat.idCard?.trim()) || p.name.trim().toLowerCase() === incPat.name.trim().toLowerCase());
                     if (!exists) {
                         clinicDatabase.patientsList.push(incPat);
                     } else {
                         exists.visitsCount = Math.max(exists.visitsCount || 1, incPat.visitsCount || 1);
-                        if (incPat.medicalHistory) exists.medicalHistory = incPat.medicalHistory;
+                        if (incPat.medicalHistory) {
+                            if (!exists.medicalHistory) exists.medicalHistory = { labs: [], imaging: [] };
+                            // دمج التحاليل والأشعة بدقة
+                            incPat.medicalHistory.labs?.forEach(l => {
+                                if (!exists.medicalHistory.labs.some(x => x.title === l.title && x.date === l.date)) {
+                                    exists.medicalHistory.labs.push(l);
+                                }
+                            });
+                            incPat.medicalHistory.imaging?.forEach(img => {
+                                if (!exists.medicalHistory.imaging.some(x => x.title === img.title && x.date === img.date)) {
+                                    exists.medicalHistory.imaging.push(img);
+                                }
+                            });
+                        }
                     }
                 });
             }
 
-            if (incomingData.triageQueue) clinicDatabase.triageQueue = incomingData.triageQueue;
-            if (incomingData.currentPatientInExam !== undefined) clinicDatabase.currentPatientInExam = incomingData.currentPatientInExam;
-            
+            if (incomingData.triageQueue) {
+                clinicDatabase.triageQueue = incomingData.triageQueue;
+            }
+
+            if (incomingData.currentPatientInExam !== undefined) {
+                clinicDatabase.currentPatientInExam = incomingData.currentPatientInExam;
+            }
+
             if (incomingData.invoicesList) {
                 incomingData.invoicesList.forEach(inv => {
-                    if (!clinicDatabase.invoicesList.some(i => i.invNum === inv.invNum)) clinicDatabase.invoicesList.push(inv);
+                    if (!clinicDatabase.invoicesList.some(i => i.invNum === inv.invNum)) {
+                        clinicDatabase.invoicesList.push(inv);
+                    }
                 });
             }
 
             if (incomingData.appointments) {
                 incomingData.appointments.forEach(app => {
-                    if (!clinicDatabase.appointments.some(a => a.name === app.name && a.date === app.date)) clinicDatabase.appointments.push(app);
+                    if (!clinicDatabase.appointments.some(a => a.name === app.name && a.date === app.date)) {
+                        clinicDatabase.appointments.push(app);
+                    }
                 });
             }
 
-            if (incomingData.auditLogs) clinicDatabase.auditLogs = incomingData.auditLogs;
+            if (incomingData.auditLogs) {
+                clinicDatabase.auditLogs = incomingData.auditLogs;
+            }
 
-            saveDatabaseToFile();
-            
-            // البث العام الشامل لجميع الأطراف
-            io.emit('sync-clinic-data', clinicDatabase);
+            saveDatabaseToFile(); // حفظ دائم على القرص
+            io.emit('sync-clinic-data', clinicDatabase); // بث فوري للجميع (استقبال، مدير، طبيب)
         }
     });
 
