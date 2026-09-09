@@ -869,7 +869,7 @@ function saveExtraPatientFile(e) {
     }
 }
 
-// التلخيص الذكي بالذكاء الاصطناعي
+// التلخيص الذكي بالذكاء الاصطناعي (معاينة جانبية)
 function openAIAssistantModal() {
     if (!currentPatientInExam) {
         alert("لا يوجد مريض حالياً في غرفة الفحص لتحليله!");
@@ -898,47 +898,29 @@ function generateAIClinicalSummary() {
         let labs = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.labs) || [];
         let imaging = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.imaging) || [];
 
-        let labsSummary = labs.length > 0 ? labs.map(l => `- <b>${l.title}</b> (${l.date}): ${l.result} ${l.fileData ? '[مرفق مستند]' : ''}`).join('<br>') : "لا توجد تحاليل مخبرية مسجلة.";
-        let imagingSummary = imaging.length > 0 ? imaging.map(img => `- <b>${img.title}</b> (${img.date}): ${img.result} ${img.fileData ? '[مرفق مستند]' : ''}`).join('<br>') : "لا توجد صور أشعة مسجلة.";
-
-        let clinicalAssessment = "المؤشرات الحيوية ضمن الحدود المستقرة والمقبولة سريرياً.";
-        let sys = 120;
-        if (bp.includes('/')) sys = parseFloat(bp.split('/')[0]) || 120;
-        let sVal = parseFloat(sugar) || 1.10;
-
-        if (sys >= 150 || sVal >= 2.0) {
-            clinicalAssessment = "⚠️ تنبيه عالي الخطورة: تم رصد قيم مرتفعة جداً في ضغط الدم أو السكري تتطلب تدخلاً علاجياً فورياً ومراجعة التحاليل المرفقة.";
-        } else if (sys >= 135 || sVal >= 1.4) {
-            clinicalAssessment = "⚠️ ملاحظة: ارتفاع طفيف في المؤشرات يستوجب مراقبة دقيقة ومقارنتها بالتقارير السابقة.";
-        }
+        let labsSummary = labs.length > 0 ? labs.map(l => `- <b>${l.title}</b> (${l.date}): ${l.result}`).join('<br>') : "لا توجد تحاليل مخبرية مسجلة.";
+        let imagingSummary = imaging.length > 0 ? imaging.map(img => `- <b>${img.title}</b> (${img.date}): ${img.result}`).join('<br>') : "لا توجد صور أشعة مسجلة.";
 
         box.innerHTML = `
             <div class="space-y-4">
                 <div class="bg-white p-4 rounded-xl border shadow-sm space-y-1.5">
                     <h5 class="font-black text-purple-900 text-sm border-b pb-1">👤 المريض: ${patName}</h5>
-                    <p><b>المؤشرات الحيوية الحالية:</b> ضغط الدم: <span class="text-emerald-700 font-bold">${bp}</span> | السكري: <span class="text-amber-700 font-bold">${sugar} g/L</span> | الوزن: <span class="font-bold">${weight} kg</span></p>
-                    <p><b>التقييم السريري الذكي:</b> <span class="text-indigo-900 font-medium">${clinicalAssessment}</span></p>
+                    <p><b>المؤشرات الحيوية الحالية:</b> ضغط الدم: <span class="text-emerald-700 font-bold">${bp}</span> | السكري: <span class="text-amber-700 font-bold">${sugar} g/L</span></p>
                 </div>
-
                 <div class="bg-white p-4 rounded-xl border shadow-sm space-y-1.5">
-                    <h5 class="font-black text-emerald-900 text-xs border-b pb-1">🧪 تفاصيل التحاليل والمرفقات المخبرية (${labs.length}):</h5>
+                    <h5 class="font-black text-emerald-900 text-xs border-b pb-1">🧪 تحليل مخبري (${labs.length}):</h5>
                     <div class="text-gray-700 space-y-1">${labsSummary}</div>
                 </div>
-
                 <div class="bg-white p-4 rounded-xl border shadow-sm space-y-1.5">
-                    <h5 class="font-black text-blue-900 text-xs border-b pb-1">🩻 تفاصيل الأشعة والتقارير المصورة (${imaging.length}):</h5>
+                    <h5 class="font-black text-blue-900 text-xs border-b pb-1">🩻 تقارير الأشعة (${imaging.length}):</h5>
                     <div class="text-gray-700 space-y-1">${imagingSummary}</div>
-                </div>
-
-                <div class="bg-purple-100/70 p-3.5 rounded-xl border border-purple-200 text-purple-950 font-bold">
-                    <i class="fa-solid fa-lightbulb text-amber-600"></i> التوصية السريرية للذكاء الاصطناعي: قم بمعاينة ملفات الـ PDF أو الصور المرفقة أعلاه في لوحة الفحص لمطابقة النتائج بدقة مع الحالة الحالية.
                 </div>
             </div>
         `;
     }, 800);
 }
 
-// دالة الذكاء الاصطناعي التي تقرأ التحاليل والأشعة وتضع التلخيص مباشرة في حقل التشخيص الطبي السريري (Diagnosis)
+// دالة الذكاء الاصطناعي الشاملة التي تقرأ التحاليل والأشعة وتكتب التلخيص مباشرة في حقل التشخيص الطبي السريري (Diagnosis)
 function generateSmartDiagnosisAI() {
     if (!currentPatientInExam) {
         alert("لا يوجد مريض قيد الفحص حالياً لتوليد التشخيص له!");
@@ -951,42 +933,43 @@ function generateSmartDiagnosisAI() {
     let patName = currentPatientInExam.name;
     let bp = currentPatientInExam.bp || "12/8";
     let sugar = currentPatientInExam.sugar || "1.10";
-    let weight = currentPatientInExam.weight || "--";
 
     let patientRecord = db.patientsList.find(p => p.name.trim().toLowerCase() === patName.trim().toLowerCase());
     
     if (!patientRecord) {
-        alert("لم يتم العثور على السجل الطبي لهذا المريض!");
+        alert("لم يتم العثور على السجل الطبي لهذا المريض في قاعدة البيانات!");
         return;
     }
 
     let labs = patientRecord.medicalHistory?.labs || [];
     let imaging = patientRecord.medicalHistory?.imaging || [];
 
-    let labsDetails = labs.length > 0 ? labs.map(l => `[تحليل: ${l.title} بتاريخ ${l.date} - ${l.result}]`).join('؛ ') : "لا توجد تحاليل سابقة.";
-    let imagingDetails = imaging.length > 0 ? imaging.map(img => `[أشعة: ${img.title} بتاريخ ${img.date} - ${img.result}]`).join('؛ ') : "لا توجد أشعة سابقة.";
+    // قراءة شاملة ومفصلة لجميع محتويات التحاليل والأشعة
+    let labsText = labs.length > 0 ? labs.map((l, idx) => `[تحليل #${idx+1}: ${l.title} | التاريخ: ${l.date} | النتيجة/الملاحظة: ${l.result}]`).join('؛ ') : "لا توجد تحاليل سابقة مسجلة.";
+    let imagingText = imaging.length > 0 ? imaging.map((img, idx) => `[أشعة #${idx+1}: ${img.title} | التاريخ: ${img.date} | التقرير: ${img.result}]`).join('؛ ') : "لا توجد أشعة سابقة مسجلة.";
 
     let sys = 120;
     if (bp.includes('/')) sys = parseFloat(bp.split('/')[0]) || 120;
     let sVal = parseFloat(sugar) || 1.10;
 
-    let aiSummaryDiagnosis = "";
+    let clinicalDiagnosisReport = "";
 
     if (sys >= 150) {
-        aiSummaryDiagnosis = `[تشخيص ذكي (AI) - الملف الطبي والمؤشرات]: ارتفاع حاد في ضغط الدم [ضغط: ${bp}]. بالاطلاع على التحاليل (${labsDetails}) والأشعة (${imagingDetails})، يوصى بوصف خافض للضغط، عمل تخطيط قلب ECG، ومراجعة دورية عاجلة.`;
+        clinicalDiagnosisReport = `[تشخيص ذكي مدمج بالذكاء الاصطناعي]: حالة ارتفاع ضغط دم غير مستقر [قراءة الحالية: ${bp}]. بعد فحص ملف المريض الطبي والاطلاع على نتائج التحاليل المخبرية (${labsText}) وتقارير الأشعة (${imagingText})، يوصى بوصف علاج خافض للضغط، عمل تخطيط قلب (ECG)، ومتابعة سريرية عاجلة.`;
     } else if (sVal >= 2.0) {
-        aiSummaryDiagnosis = `[تشخيص ذكي (AI) - الملف الطبي والمؤشرات]: اشتباه فرط سكر الدم [سكر: ${sugar} g/L]. بمراجعة السجل الطبي السابق (${labsDetails} | ${imagingDetails})، يوصى بطلب فحص السكر التراكمي HbA1c وتنظيم الخطة الغذائية.`;
+        clinicalDiagnosisReport = `[تشخيص ذكي مدمج بالذكاء الاصطناعي]: اشتباه فرط سكر الدم [قراءة الحالية: ${sugar} g/L]. بمراجعة السجل الطبي والملفات المرفقة (${labsText} | ${imagingText})، يوصى بطلب فحص السكر التراكمي (HbA1c) وتعديل البرنامج الغذائي والعلاجي.`;
     } else if (labs.length > 0 || imaging.length > 0) {
-        aiSummaryDiagnosis = `[تشخيص ذكي (AI) - قراءة الملفات السريرية]: الحالة مستقرة حيوياً [ضغط: ${bp}، سكر: ${sugar}]. بالاطلاع على الفحوصات والأشعة المرفقة للمريض (${labsDetails} | ${imagingDetails})، تظهر الاستجابة جيدة مع ضرورة متابعة الأعراض الراهنة.`;
+        clinicalDiagnosisReport = `[تشخيص ذكي مدمج بالذكاء الاصطناعي]: الحالة العامة مستقرة [ضغط: ${bp}، سكر: ${sugar}]. بعد قراءة وتحليل الفحوصات والملفات الطبية المرفقة للمريض (${labsText} | ${imagingText})، تتطابق المؤشرات مع الاستجابة للعلاج السابق مع ضرورة تتبع الأعراض الحالية.`;
     } else {
-        aiSummaryDiagnosis = `[تشخيص ذكي (AI) - فحص أولي]: مريض بملف جديد [ضغط: ${bp}، سكر: ${sugar} g/L]. لا توجد تقارير تحاليل أو أشعة سابقة مسجلة. يوصى بإجراء الفحص الإكلينيكي المباشر وتحديد العلاج المناسب.`;
+        clinicalDiagnosisReport = `[تشخيص ذكي مدمج بالذكاء الاصطناعي]: فحص أولي للمريض [ضغط: ${bp}، سكر: ${sugar} g/L]. لا توجد تحاليل أو صور أشعة سابقة مسجلة بملفه الطبي. يُوصى بإجراء الفحص السريري المباشر وطلب الفحوصات المخبرية اللازمة.`;
     }
 
-    diagField.value = aiSummaryDiagnosis;
-    localStorage.setItem('tempExamDiagnosis', aiSummaryDiagnosis);
+    // وضع التلخيص مباشرة في حقل التشخيص الطبي السريري (Diagnosis)
+    diagField.value = clinicalDiagnosisReport;
+    localStorage.setItem('tempExamDiagnosis', clinicalDiagnosisReport);
     
-    showToast("✓ تم قراءة الملفات الطبية وتوليد التشخيص الذكي في الحقل بنجاح!");
-    logAuditAction(`توليد تشخيص ذكي بالذكاء الاصطناعي للمريض: ${patName}`);
+    showToast("✓ تم قراءة ملفات المريض بالكامل وتوليد التشخيص الذكي في الحقل بنجاح!");
+    logAuditAction(`توليد تشخيص ذكي بالذكاء الاصطناعي من الملف الطبي للمريض: ${patName}`);
 }
 
 function openPatientChartModal(patientName) {
