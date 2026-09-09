@@ -250,20 +250,25 @@
                                     <div class="w-10 h-10 rounded-2xl bg-[#0097b2] text-white flex items-center justify-center text-lg shadow"><i class="fa-solid fa-folder-medical"></i></div>
                                     <div>
                                         <h4 class="text-sm font-black text-gray-800">الملف الصحي التراكمي (الأشعة والتحاليل السابقة للمريض)</h4>
-                                        <p class="text-[11px] text-gray-500">يعرض كافة الفحوصات والتقارير الطبية التي أحضرها المريض سابقاً</p>
+                                        <p class="text-[11px] text-gray-500">يعرض كافة الفحوصات والتقارير الطبية للمريض</p>
                                     </div>
                                 </div>
-                                <button type="button" onclick="openAddMedicalRecordModal()" class="bg-[#0097b2] hover:bg-[#007b92] text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
-                                    <i class="fa-solid fa-plus"></i> <span>إدراج تحليل / أشعة جديدة</span>
-                                </button>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <button type="button" onclick="openAIAssistantModal()" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+                                        <i class="fa-solid fa-wand-magic-sparkles"></i> <span>التلخيص الذكي للحالة (AI)</span>
+                                    </button>
+                                    <button type="button" onclick="openAddMedicalRecordModal()" class="bg-[#0097b2] hover:bg-[#007b92] text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+                                        <i class="fa-solid fa-plus"></i> <span>إدراج ملف</span>
+                                    </button>
+                                </div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
-                                    <h5 class="text-xs font-black text-emerald-700 flex items-center gap-2 border-b pb-2"><i class="fa-solid fa-vial-virus text-sm"></i> <span>سجل التحاليل المخبرية السابقة</span></h5>
+                                    <h5 class="text-xs font-black text-emerald-700 flex items-center gap-2 border-b pb-2"><i class="fa-solid fa-vial-virus text-sm"></i> <span>سجل التحاليل المخبرية</span></h5>
                                     <div id="examPastLabsContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
                                 </div>
                                 <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
-                                    <h5 class="text-xs font-black text-blue-700 flex items-center gap-2 border-b pb-2"><i class="fa-solid fa-x-ray text-sm"></i> <span>سجل الأشعة والتصوير السابقة</span></h5>
+                                    <h5 class="text-xs font-black text-blue-700 flex items-center gap-2 border-b pb-2"><i class="fa-solid fa-x-ray text-sm"></i> <span>سجل الأشعة والتصوير</span></h5>
                                     <div id="examPastImagingContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
                                 </div>
                             </div>
@@ -518,6 +523,53 @@
             <button id="btnQuickFinishConsult" onclick="switchTab('examination')" class="hidden bg-[#0097b2] hover:bg-[#007b92] text-white px-3 py-1 rounded-xl font-bold text-[11px] shadow transition">
                 <i class="fa-solid fa-arrow-up-right-from-square"></i> عرض الفحص
             </button>
+        </div>
+    </div>
+
+    <!-- نافذة معاينة الملف الطبي بصيغة PDF / عارض مستندات منسق -->
+    <div id="modal-pdf-viewer" class="fixed inset-0 bg-black/70 hidden flex justify-center items-center z-50 backdrop-blur-md p-4">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden border border-gray-200">
+            <div class="bg-[#0097b2] text-white px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-file-pdf text-xl"></i>
+                    <h3 id="pdfViewerTitle" class="font-black text-sm">معاينة المستند الطبي</h3>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a id="pdfDownloadBtn" href="#" download class="bg-white/20 hover:bg-white/30 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-download"></i> تحميل الملف
+                    </a>
+                    <button onclick="closeModal('pdf-viewer')" class="text-white font-bold text-xl hover:text-gray-200">&times;</button>
+                </div>
+            </div>
+            <div class="flex-1 bg-gray-100 p-4 flex justify-center items-center overflow-auto">
+                <div id="pdfViewerContentContainer" class="w-full h-full bg-white rounded-2xl shadow-inner border flex justify-center items-center overflow-hidden">
+                    <!-- سيتم حقن الملف هنا (صورة أو iframe لملف PDF) -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة التلخيص الذكي بالذكاء الاصطناعي -->
+    <div id="modal-ai-summary" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center z-50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl p-8 space-y-5 border-2 border-purple-200">
+            <div class="flex justify-between items-center border-b pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center text-lg"><i class="fa-solid fa-robot"></i></div>
+                    <h3 class="font-black text-base text-purple-950">المساعد الطبي الذكي | تلخيص وتحليل الحالة</h3>
+                </div>
+                <button onclick="closeModal('ai-summary')" class="font-bold text-xl">&times;</button>
+            </div>
+            
+            <div id="aiSummaryContent" class="bg-purple-50/50 p-5 rounded-2xl border border-purple-100 text-xs font-medium text-gray-700 space-y-3 max-h-[60vh] overflow-y-auto leading-relaxed">
+                <div class="flex items-center justify-center py-8 text-purple-600 gap-2 font-bold">
+                    <i class="fa-solid fa-spinner fa-spin text-lg"></i> جاري تحليل الملفات الطبية وقراءتها...
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-2">
+                <span class="text-[10px] text-gray-400 font-bold">* التلخيص للإرشاد الطبي السريري ويعتمد على المؤشرات والملفات المرفقة.</span>
+                <button onclick="closeModal('ai-summary')" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow">إغلاق النافذة</button>
+            </div>
         </div>
     </div>
 

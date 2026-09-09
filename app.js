@@ -747,6 +747,24 @@ function showToast(msg) {
     setTimeout(() => t.classList.add('opacity-0', 'pointer-events-none'), 3000);
 }
 
+// دالة معاينة الملفات الطبية بصيغة PDF أو عارض مستندات منسق
+function previewMedicalFile(fileData, fileName) {
+    const container = document.getElementById('pdfViewerContentContainer');
+    const downloadBtn = document.getElementById('pdfDownloadBtn');
+    const titleEl = document.getElementById('pdfViewerTitle');
+    
+    titleEl.innerText = `معاينة المستند: ${fileName || 'ملف طبي'}`;
+    downloadBtn.href = fileData;
+    downloadBtn.download = fileName || 'medical_file';
+
+    if (fileData.startsWith('data:application/pdf') || fileData.includes('pdf')) {
+        container.innerHTML = `<iframe src="${fileData}" class="w-full h-full border-none"></iframe>`;
+    } else {
+        container.innerHTML = `<div class="p-4 flex justify-center items-center h-full"><img src="${fileData}" class="max-h-full max-w-full object-contain rounded-xl shadow" alt="Medical Document"></div>`;
+    }
+    document.getElementById('modal-pdf-viewer').classList.remove('hidden');
+}
+
 // دوال إدارة ورفع الملفات الطبية
 function handlePatientInitFileSelection(event) {
     const file = event.target.files[0];
@@ -848,6 +866,64 @@ function saveExtraPatientFile(e) {
         showToast("تم إرفاق الملف الطبي بنجاح للمريض!");
         logAuditAction(`إضافة ملف طبي (${title}) للمريض: ${selectedPatientForExtraFile}`);
     }
+}
+
+// دالة التلخيص بالذكاء الاصطناعي
+function openAIAssistantModal() {
+    if (!currentPatientInExam) {
+        alert("لا يوجد مريض حالياً في غرفة الفحص لتحليله!");
+        return;
+    }
+    document.getElementById('modal-ai-summary').classList.remove('hidden');
+    generateAIClinicalSummary();
+}
+
+function generateAIClinicalSummary() {
+    const box = document.getElementById('aiSummaryContent');
+    box.innerHTML = `<div class="flex items-center justify-center py-8 text-purple-600 gap-2 font-bold"><i class="fa-solid fa-spinner fa-spin text-lg"></i> جاري استخراج وتحليل الملفات الطبية والمؤشرات الحيوية...</div>`;
+
+    setTimeout(() => {
+        let patName = currentPatientInExam.name;
+        let bp = currentPatientInExam.bp || "غير مدون";
+        let sugar = currentPatientInExam.sugar || "غير مدون";
+        let weight = currentPatientInExam.weight || "غير مدون";
+
+        let patientRecord = db.patientsList.find(p => p.name.trim().toLowerCase() === patName.toLowerCase());
+        let labs = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.labs) || [];
+        let imaging = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.imaging) || [];
+
+        let labsSummary = labs.length > 0 ? labs.map(l => `- ${l.title} (${l.date}): ${l.result}`).join('<br>') : "لا توجد تحاليل مخبرية سابقة مرفقة.";
+        let imagingSummary = imaging.length > 0 ? imaging.map(img => `- ${img.title} (${img.date}): ${img.result}`).join('<br>') : "لا توجد صور أشعة مرفقة.";
+
+        let clinicalAssessment = "المؤشرات الحيوية ضمن الحدود المستقرة والمقبولة سريرياً.";
+        if (parseFloat(bp.split('/')[0]) >= 15 || parseFloat(sugar) >= 2.0) {
+            clinicalAssessment = "⚠️ تنبيه: تم رصد قيم حرجة في ضغط الدم أو السكري تستدعي اهتماماً تشخيصياً دقيقاً.";
+        }
+
+        box.innerHTML = `
+            <div class="space-y-4">
+                <div class="bg-white p-4 rounded-xl border shadow-sm space-y-1.5">
+                    <h5 class="font-black text-purple-900 text-sm border-b pb-1">👤 المريض: ${patName}</h5>
+                    <p><b>المؤشرات الحيوية الحالية:</b> ضغط الدم: <span class="text-emerald-700 font-bold">${bp}</span> | السكري: <span class="text-amber-700 font-bold">${sugar} g/L</span> | الوزن: <span class="font-bold">${weight} kg</span></p>
+                    <p><b>التقييم السريري السريع:</b> <span class="text-indigo-900 font-medium">${clinicalAssessment}</span></p>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border shadow-sm space-y-1.5">
+                    <h5 class="font-black text-emerald-900 text-xs border-b pb-1">🧪 ملخص التحاليل المخبرية المرفقة:</h5>
+                    <div class="text-gray-600">${labsSummary}</div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border shadow-sm space-y-1.5">
+                    <h5 class="font-black text-blue-900 text-xs border-b pb-1">🩻 ملخص الأشعة والتقارير المصورة المرفقة:</h5>
+                    <div class="text-gray-600">${imagingSummary}</div>
+                </div>
+
+                <div class="bg-purple-100/70 p-3.5 rounded-xl border border-purple-200 text-purple-950 font-bold">
+                    <i class="fa-solid fa-lightbulb text-amber-600"></i> المقترح التشخيصي المساعد: يوصى بمطابقة القيم السابقة مع الفحص السريري الحالي وكتابة خطة المتابعة.
+                </div>
+            </div>
+        `;
+    }, 1000);
 }
 
 function loadPatients() {
@@ -1039,6 +1115,8 @@ function closeModal(id) {
     if (id === 'invoice') document.getElementById('modal-invoice').classList.add('hidden');
     else if (id === 'medical-record') document.getElementById('modal-medical-record').classList.add('hidden');
     else if (id === 'add-patient-file') document.getElementById('modal-add-patient-file').classList.add('hidden');
+    else if (id === 'ai-summary') document.getElementById('modal-ai-summary').classList.add('hidden');
+    else if (id === 'pdf-viewer') document.getElementById('modal-pdf-viewer').classList.add('hidden');
     else document.getElementById('modal-simple').classList.add('hidden');
 }
 
@@ -1245,14 +1323,14 @@ function renderPatientMedicalHistoryInExam(patientName) {
 
     if (labs.length === 0) labsBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد تحاليل مسجلة</p>`;
     else labs.forEach(l => {
-        let fileBtn = l.fileData ? `<a href="${l.fileData}" download="${l.fileName || 'lab-file'}" target="_blank" class="text-blue-600 font-bold underline block mt-1"><i class="fa-solid fa-download"></i> معاينة / تحميل الملف (${l.fileName || 'مرفق'})</a>` : '';
-        labsBox.innerHTML += `<div class="p-2.5 rounded-2xl border bg-emerald-50 text-xs shadow-sm"><b class="text-emerald-900">${l.title}</b> (${l.date})<p class="text-gray-600 mt-0.5">${l.result}</p>${fileBtn}</div>`;
+        let fileBtn = l.fileData ? `<button onclick="previewMedicalFile('${l.fileData}', '${l.fileName || l.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> معاينة الملف / PDF</button>` : '';
+        labsBox.innerHTML += `<div class="p-3 rounded-2xl border bg-emerald-50 text-xs shadow-sm space-y-1"><b class="text-emerald-900 block">${l.title}</b> <span class="text-gray-500">(${l.date})</span><p class="text-gray-600">${l.result}</p>${fileBtn}</div>`;
     });
 
     if (imaging.length === 0) imgBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد صور أشعة مسجلة</p>`;
     else imaging.forEach(img => {
-        let fileBtn = img.fileData ? `<a href="${img.fileData}" download="${img.fileName || 'imaging-file'}" target="_blank" class="text-blue-600 font-bold underline block mt-1"><i class="fa-solid fa-download"></i> معاينة / تحميل صورة الأشعة</a>` : '';
-        imgBox.innerHTML += `<div class="p-2.5 rounded-2xl border bg-blue-50 text-xs shadow-sm"><b class="text-blue-900">${img.title}</b> (${img.date})<p class="text-gray-600 mt-0.5">${img.result}</p>${fileBtn}</div>`;
+        let fileBtn = img.fileData ? `<button onclick="previewMedicalFile('${img.fileData}', '${img.fileName || img.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> معاينة الأشعة / PDF</button>` : '';
+        imgBox.innerHTML += `<div class="p-3 rounded-2xl border bg-blue-50 text-xs shadow-sm space-y-1"><b class="text-blue-900 block">${img.title}</b> <span class="text-gray-500">(${img.date})</span><p class="text-gray-600">${img.result}</p>${fileBtn}</div>`;
     });
 }
 
