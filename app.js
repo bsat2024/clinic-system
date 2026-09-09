@@ -58,7 +58,7 @@ try {
     
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData && serverData.patientsList) {
-            db = serverData; // مزامنة مطلقة لكل قاعدة البيانات المحدثة من السيرفر
+            db = serverData; 
 
             if (serverData.currentPatientInExam !== undefined) {
                 currentPatientInExam = serverData.currentPatientInExam;
@@ -109,7 +109,7 @@ function saveAndSync() {
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });
-        showToast("✓ تم الحفظ والمزامنة الفورية بين الأطراف");
+        showToast("✓ تم الحفظ والمزامنة الفورية بين الاستقبال والطبيب");
     } else {
         showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان");
     }
@@ -869,7 +869,7 @@ function saveExtraPatientFile(e) {
     }
 }
 
-// التلخيص الذكي بالذكاء الاصطناعي
+// التلخيص الذكي وإرسال الملخص مباشرة إلى حقل التشخيص الطبي السريري (Diagnosis)
 function openAIAssistantModal() {
     if (!currentPatientInExam) {
         alert("لا يوجد مريض حالياً في غرفة الفحص لتحليله!");
@@ -898,84 +898,42 @@ function generateAIClinicalSummary() {
         let labs = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.labs) || [];
         let imaging = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.imaging) || [];
 
-        let labsSummary = labs.length > 0 ? labs.map(l => `- <b>${l.title}</b> (${l.date}): ${l.result} ${l.fileData ? '[مرفق مستند]' : ''}`).join('<br>') : "لا توجد تحاليل مخبرية مسجلة.";
-        let imagingSummary = imaging.length > 0 ? imaging.map(img => `- <b>${img.title}</b> (${img.date}): ${img.result} ${img.fileData ? '[مرفق مستند]' : ''}`).join('<br>') : "لا توجد صور أشعة مسجلة.";
+        let labsSummary = labs.length > 0 ? labs.map(l => `- ${l.title} (${l.date}): ${l.result}`).join(' | ') : "لا توجد تحاليل مسجلة.";
+        let imagingSummary = imaging.length > 0 ? imaging.map(img => `- ${img.title} (${img.date}): ${img.result}`).join(' | ') : "لا توجد أشعة مسجلة.";
 
-        let clinicalAssessment = "المؤشرات الحيوية ضمن الحدود المستقرة والمقبولة سريرياً.";
+        let clinicalAssessment = "مستقر سريرياً ضمن المعدل الطبيعي.";
         let sys = 120;
         if (bp.includes('/')) sys = parseFloat(bp.split('/')[0]) || 120;
         let sVal = parseFloat(sugar) || 1.10;
 
         if (sys >= 150 || sVal >= 2.0) {
-            clinicalAssessment = "⚠️ تنبيه عالي الخطورة: تم رصد قيم مرتفعة جداً في ضغط الدم أو السكري تتطلب تدخلاً علاجياً فورياً ومراجعة التحاليل المرفقة.";
+            clinicalAssessment = "تنبيه: ارتفاع حاد في العلامات الحيوية (ضغط/سكر) يستوجب التدخل الفوري.";
         } else if (sys >= 135 || sVal >= 1.4) {
-            clinicalAssessment = "⚠️ ملاحظة: ارتفاع طفيف في المؤشرات يستوجب مراقبة دقيقة ومقارنتها بالتقارير السابقة.";
+            clinicalAssessment = "ملاحظة: ارتفاع طفيف في العلامات الحيوية يستوجب المراقبة.";
+        }
+
+        // صياغة التلخيص ليتم وضعه تلقائياً في حقل التشخيص الطبي السريري (Diagnosis)
+        let generatedDiagnosisText = `المريض: ${patName} | العلامات: ضغط (${bp})، سكر (${sugar} g/L)، وزن (${weight}kg). التقييم: ${clinicalAssessment} الفحوصات: [تحاليل: ${labsSummary}] [أشعة: ${imagingSummary}]`;
+
+        // تعبئة حقل التشخيص الطبي السريري تلقائياً بالملخص الذكي
+        const diagField = document.getElementById('examDiagnosis');
+        if (diagField) {
+            diagField.value = generatedDiagnosisText;
+            localStorage.setItem('tempExamDiagnosis', generatedDiagnosisText);
         }
 
         box.innerHTML = `
             <div class="space-y-4">
                 <div class="bg-white p-4 rounded-xl border shadow-sm space-y-1.5">
-                    <h5 class="font-black text-purple-900 text-sm border-b pb-1">👤 المريض: ${patName}</h5>
-                    <p><b>المؤشرات الحيوية الحالية:</b> ضغط الدم: <span class="text-emerald-700 font-bold">${bp}</span> | السكري: <span class="text-amber-700 font-bold">${sugar} g/L</span> | الوزن: <span class="font-bold">${weight} kg</span></p>
-                    <p><b>التقييم السريري الذكي:</b> <span class="text-indigo-900 font-medium">${clinicalAssessment}</span></p>
+                    <h5 class="font-black text-purple-900 text-sm border-b pb-1">👤 التلخيص الذكي الجاهز للتشخيص السريري:</h5>
+                    <p class="text-indigo-950 font-bold p-3 bg-purple-50 rounded-xl border border-purple-200">${generatedDiagnosisText}</p>
                 </div>
-
-                <div class="bg-white p-4 rounded-xl border shadow-sm space-y-1.5">
-                    <h5 class="font-black text-emerald-900 text-xs border-b pb-1">🧪 تفاصيل التحاليل والمرفقات المخبرية (${labs.length}):</h5>
-                    <div class="text-gray-700 space-y-1">${labsSummary}</div>
-                </div>
-
-                <div class="bg-white p-4 rounded-xl border shadow-sm space-y-1.5">
-                    <h5 class="font-black text-blue-900 text-xs border-b pb-1">🩻 تفاصيل الأشعة والتقارير المصورة (${imaging.length}):</h5>
-                    <div class="text-gray-700 space-y-1">${imagingSummary}</div>
-                </div>
-
-                <div class="bg-purple-100/70 p-3.5 rounded-xl border border-purple-200 text-purple-950 font-bold">
-                    <i class="fa-solid fa-lightbulb text-amber-600"></i> التوصية السريرية للذكاء الاصطناعي: قم بمعاينة ملفات الـ PDF أو الصور المرفقة أعلاه في لوحة الفحص لمطابقة النتائج بدقة مع الحالة الحالية.
+                <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-emerald-900 font-bold text-center">
+                    <i class="fa-solid fa-circle-check"></i> تم إرسال هذا التلخيص وتعبئته تلقائياً في حقل (التشخيص الطبي السريري - Diagnosis) بنجاح!
                 </div>
             </div>
         `;
     }, 800);
-}
-
-// عرض واجهة الاطلاع الشامل على الملف الطبي للمريض من قسم المرضى
-function openPatientChartModal(patientName) {
-    let patient = db.patientsList.find(p => p.name.trim().toLowerCase() === patientName.trim().toLowerCase());
-    if (!patient) {
-        alert("المريض غير موجود!");
-        return;
-    }
-
-    document.getElementById('chartModalPatientName').innerText = patient.name;
-    document.getElementById('chartModalPatientDetails').innerText = `بطاقة التعريف: ${patient.idCard || '--'} | الهاتف: ${patient.phone || '--'} | الزيارات: ${patient.visitsCount || 1}`;
-
-    const labsBox = document.getElementById('chartModalLabsContainer');
-    const imgBox = document.getElementById('chartModalImagingContainer');
-    labsBox.innerHTML = '';
-    imgBox.innerHTML = '';
-
-    const labs = patient.medicalHistory?.labs || [];
-    const imaging = patient.medicalHistory?.imaging || [];
-
-    if (labs.length === 0) {
-        labsBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد تحاليل مسجلة لهذا المريض</p>`;
-    } else {
-        labs.forEach(l => {
-            let fileBtn = l.fileData ? `<button onclick="previewMedicalFile('${l.fileData}', '${l.fileName || l.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3.5 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> معاينة الملف / PDF</button>` : '';
-            labsBox.innerHTML += `<div class="p-3.5 rounded-2xl border bg-emerald-50/50 text-xs shadow-sm space-y-1"><b class="text-emerald-900 block text-sm">${l.title}</b> <span class="text-gray-500">(${l.date})</span><p class="text-gray-700 font-medium">${l.result}</p>${fileBtn}</div>`;
-        });
-    }
-
-    if (imaging.length === 0) {
-        imgBox.innerHTML = `<p class="text-gray-400 text-xs py-2">لا توجد صور أشعة مسجلة لهذا المريض</p>`;
-    } else {
-        imaging.forEach(img => {
-            let fileBtn = img.fileData ? `<button onclick="previewMedicalFile('${img.fileData}', '${img.fileName || img.title}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3.5 py-1.5 rounded-xl font-bold text-xs mt-2 inline-flex items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf"></i> معاينة الأشعة / PDF</button>` : '';
-            imgBox.innerHTML += `<div class="p-3.5 rounded-2xl border bg-blue-50/50 text-xs shadow-sm space-y-1"><b class="text-blue-900 block text-sm">${img.title}</b> <span class="text-gray-500">(${img.date})</span><p class="text-gray-700 font-medium">${img.result}</p>${fileBtn}</div>`;
-        });
-    }
-
-    document.getElementById('modal-patient-chart-viewer').classList.remove('hidden');
 }
 
 function loadPatients() {
@@ -992,7 +950,7 @@ function loadPatients() {
             <button onclick="deletePatient(${i})" class="text-red-500 font-bold px-1.5"><i class="fa-solid fa-trash"></i></button>
         ` : `
             <button onclick="openPatientChartModal('${p.name}')" class="bg-indigo-50 border text-indigo-700 px-2.5 py-1.5 rounded-xl text-xs font-bold" title="الاطلاع على الملف الطبي"><i class="fa-solid fa-folder-open"></i> الملف</button>
-            <button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2.5 py-1.5 rounded-xl text-xs font-bold"><i class="fa-solid fa-file-medical"></i> + ملف</button>
+            <button onclick="openAddExtraFileModal('${p.name}')" class="bg-cyan-50 border text-[#0097b2] px-2.5 py-1.5 rounded-xl text-xs font-bold" title="إضافة تحليل أو أشعة"><i class="fa-solid fa-file-medical"></i> + ملف</button>
         `;
 
         tb.innerHTML += `
