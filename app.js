@@ -45,7 +45,6 @@ try {
             indicator.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span> متزامن (Live Cloud)`;
             indicator.className = "text-[11px] font-black px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-2 shadow-sm";
         }
-        // إرسال البيانات المحلية فور الاتصال لدمجها بالسيرفر
         socket.emit('update-clinic-data', db);
     });
 
@@ -59,7 +58,6 @@ try {
     
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData && serverData.patientsList) {
-            // دمج ذكي محلياً يمنع الكتابة الفوقية ومسح البيانات
             serverData.patientsList.forEach(sPat => {
                 let localPat = db.patientsList.find(p => (p.idCard && p.idCard === sPat.idCard) || p.name === sPat.name);
                 if (!localPat) {
@@ -68,13 +66,23 @@ try {
                     localPat.medicalHistory = sPat.medicalHistory;
                 }
             });
-            db.triageQueue = serverData.triageQueue || db.triageQueue;
+            db.triageQueue = serverData.triageQueue || [];
             serverData.invoicesList.forEach(inv => {
                 if (!db.invoicesList.some(i => i.invNum === inv.invNum)) db.invoicesList.push(inv);
             });
             serverData.appointments.forEach(app => {
                 if (!db.appointments.some(a => a.name === app.name && a.date === app.date)) db.appointments.push(app);
             });
+
+            // مزامنة حالة المريض الحالي بالفحص عبر الأجهزة لمنع تضارب الشاشات
+            if (serverData.currentPatientInExam !== undefined) {
+                currentPatientInExam = serverData.currentPatientInExam;
+                if (currentPatientInExam) {
+                    localStorage.setItem('currentPatientInExam', JSON.stringify(currentPatientInExam));
+                } else {
+                    localStorage.removeItem('currentPatientInExam');
+                }
+            }
 
             localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
             refreshAllUIs();
@@ -106,7 +114,7 @@ function saveAndSync() {
     localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
     
     if (socket && socket.connected) {
-        socket.emit('update-clinic-data', db);
+        socket.emit('update-clinic-data', { ...db, currentPatientInExam });
         showToast("✓ تم الحفظ والمزامنة السحابية بنجاح");
     } else {
         showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان");
@@ -118,7 +126,7 @@ window.addEventListener('online', () => {
     showToast("✓ عاد الاتصال بالإنترنت! جاري دمج ومزامنة البيانات...");
     if (socket) {
         if (!socket.connected) socket.connect();
-        socket.emit('update-clinic-data', db);
+        socket.emit('update-clinic-data', { ...db, currentPatientInExam });
     }
 });
 
@@ -130,6 +138,8 @@ function refreshAllUIs() {
     loadInvoices();
     updateSidebarBadges();
     renderAuditLogsTable();
+    loadCurrentExamCard();
+    updateLiveBottomActiveBar();
     if (document.getElementById('tab-dashboard') && !document.getElementById('tab-dashboard').classList.contains('hidden')) {
         initDashboardCharts();
     }
@@ -574,7 +584,6 @@ function confirmFinishExamination(e) {
     closeExamPricingModal();
     logAuditAction(`إنهاء فحص وتخريج المريض وإصدار فاتورة: ${dischargedPatientName}`);
     
-    // تفريغ حقول غرفة الفحص الإكلينيكي والوصفات الطبية بالكامل
     document.getElementById('examDiagnosis').value = '';
     document.getElementById('examProcedure').value = '';
     document.getElementById('examPrescriptionText').value = '';
@@ -588,17 +597,16 @@ function confirmFinishExamination(e) {
         triggerNurseNextPatientAlert(nextPatient.name, nextPatient.doctor);
     }
 
-    // تصفير المريض الحالي بالفحص في كلا الطرفين وعلى الذاكرة المحلية
     currentPatientInExam = null;
     localStorage.removeItem('currentPatientInExam');
 
-    // حفظ وبث التحديث الفوري للسيرفر وكافة الأجهزة المتصلة لتتطابق حالة العيادة وغرفة الفحص
     saveAndSync();
     
     loadCurrentExamCard();
-    updateLiveBottomActiveBar(); // تحديث شريط حالة العيادة السفلي ليصبح شاغراً فوراً
+    updateLiveBottomActiveBar();
     showToast("تم تخريج المريض وتفريغ العيادة وغرفة الفحص بنجاح!");
 }
+
 function populateTriageDoctorDropdown() {
     let sel = document.getElementById('triageDoctor');
     let aDoc = document.getElementById('aDoc');
