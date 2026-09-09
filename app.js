@@ -56,44 +56,10 @@ try {
         }
     });
     
-    // استقبال التحديثات من السيرفر وتحديث الواجهة فوراً ودون مسح البيانات المحلية
+    // المزامنة الفورية الجبرية: اعتماد أحدث نسخة قادمة من السيرفر لجميع الطرفين لحظياً
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData && serverData.patientsList) {
-            serverData.patientsList.forEach(sPat => {
-                let localPat = db.patientsList.find(p => 
-                    (p.idCard && sPat.idCard && p.idCard.trim() === sPat.idCard.trim()) || 
-                    (p.name && sPat.name && p.name.trim().toLowerCase() === sPat.name.trim().toLowerCase())
-                );
-                if (!localPat) {
-                    db.patientsList.push(sPat);
-                } else {
-                    localPat.visitsCount = Math.max(localPat.visitsCount || 1, sPat.visitsCount || 1);
-                    if (sPat.phone) localPat.phone = sPat.phone;
-                    if (sPat.dob) localPat.dob = sPat.dob;
-                    if (sPat.medicalHistory) {
-                        if (!localPat.medicalHistory) localPat.medicalHistory = { labs: [], imaging: [] };
-                        sPat.medicalHistory.labs?.forEach(l => {
-                            if (!localPat.medicalHistory.labs.some(x => x.title === l.title && x.date === l.date)) {
-                                localPat.medicalHistory.labs.push(l);
-                            }
-                        });
-                        sPat.medicalHistory.imaging?.forEach(img => {
-                            if (!localPat.medicalHistory.imaging.some(x => x.title === img.title && x.date === img.date)) {
-                                localPat.medicalHistory.imaging.push(img);
-                            }
-                        });
-                    }
-                }
-            });
-
-            db.triageQueue = serverData.triageQueue || [];
-            
-            serverData.invoicesList.forEach(inv => {
-                if (!db.invoicesList.some(i => i.invNum === inv.invNum)) db.invoicesList.push(inv);
-            });
-            serverData.appointments.forEach(app => {
-                if (!db.appointments.some(a => a.name === app.name && a.date === app.date)) db.appointments.push(app);
-            });
+            db = serverData; // مزامنة مطلقة لكل قاعدة البيانات المحدثة من السيرفر
 
             if (serverData.currentPatientInExam !== undefined) {
                 currentPatientInExam = serverData.currentPatientInExam;
@@ -120,14 +86,7 @@ async function fetchServerDataInitial() {
         if (res.ok) {
             let serverData = await res.json();
             if (serverData && serverData.patientsList) {
-                serverData.patientsList.forEach(sPat => {
-                    let localPat = db.patientsList.find(p => 
-                        (p.idCard && sPat.idCard && p.idCard.trim() === sPat.idCard.trim()) || 
-                        (p.name && sPat.name && p.name.trim().toLowerCase() === sPat.name.trim().toLowerCase())
-                    );
-                    if (!localPat) db.patientsList.push(sPat);
-                });
-                if (serverData.triageQueue) db.triageQueue = serverData.triageQueue;
+                db = serverData;
                 if (serverData.currentPatientInExam !== undefined) {
                     currentPatientInExam = serverData.currentPatientInExam;
                     if (currentPatientInExam) localStorage.setItem('currentPatientInExam', JSON.stringify(currentPatientInExam));
@@ -151,7 +110,7 @@ function saveAndSync() {
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });
-        showToast("✓ تم الحفظ والمزامنة الفورية");
+        showToast("✓ تم الحفظ والمزامنة الفورية مع الاستقبال والطبيب");
     } else {
         showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان");
     }
@@ -176,6 +135,7 @@ function refreshAllUIs() {
     renderAuditLogsTable();
     loadCurrentExamCard();
     updateLiveBottomActiveBar();
+    populateDoctorQueueQuickDropdown();
     if (document.getElementById('tab-dashboard') && !document.getElementById('tab-dashboard').classList.contains('hidden')) {
         initDashboardCharts();
     }
