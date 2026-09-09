@@ -959,7 +959,7 @@ function generateSmartDiagnosisAI() {
     } else if (sVal >= 2.0) {
         clinicalDiagnosisReport = `[تشخيص ذكي مدمج بالذكاء الاصطناعي]: اشتباه فرط سكر الدم [قراءة الحالية: ${sugar} g/L]. بمراجعة السجل الطبي والملفات المرفقة (${labsText} | ${imagingText})، يوصى بطلب فحص السكر التراكمي (HbA1c) وتعديل البرنامج الغذائي والعلاجي.`;
     } else if (labs.length > 0 || imaging.length > 0) {
-        clinicalDiagnosisReport = `[تشخيص ذكي مدمج بالذكاء الاصطناعي]: الحالة العامة مستقرة [ضغط: ${bp}، سكر: ${sugar}]. بعد قراءة وتحليل الفحوصات والملفات الطبية المرفقة للمريض (${labsText} | ${imagingText})، تتطابق المؤشرات مع الاستجابة للعلاج السابق مع ضرورة تتبع الأعراض الحالية.`;
+        clinicalDiagnosisReport = `[تشخيص ذكي مدمج بالذكاء الاصطناعي]: الحالة العامة مستقرة [ضغط: ${bp}، سكر: ${sugar}]. بعد قراءة وتحليل الفحوصات والملفات الطبية المرفقة للمريض (${labsText} | ${imagingText})، تظهر الاستجابة جيدة مع ضرورة تتبع الأعراض الحالية.`;
     } else {
         clinicalDiagnosisReport = `[تشخيص ذكي مدمج بالذكاء الاصطناعي]: فحص أولي للمريض [ضغط: ${bp}، سكر: ${sugar} g/L]. لا توجد تحاليل أو صور أشعة سابقة مسجلة بملفه الطبي. يُوصى بإجراء الفحص السريري المباشر وطلب الفحوصات المخبرية اللازمة.`;
     }
@@ -969,7 +969,7 @@ function generateSmartDiagnosisAI() {
     localStorage.setItem('tempExamDiagnosis', clinicalDiagnosisReport);
     
     showToast("✓ تم قراءة ملفات المريض بالكامل وتوليد التشخيص الذكي في الحقل بنجاح!");
-    logAuditAction(`توليد تشخيص ذكي بالذكاء الاصطناعي من الملف الطبي للمريض: ${patName}`);
+    logAuditAction(`توليد تشخيص ذكي بالذكاء الاصطناعي للمريض: ${patName}`);
 }
 
 function openPatientChartModal(patientName) {
@@ -1340,7 +1340,7 @@ function removeDrugFromTemplate(index) {
 
 function saveAndDispensePrescription() {
     let prescText = document.getElementById('examPrescriptionText').value.trim();
-    if (!prescText) { alert("أضف أدوية للوصفة أولاً!"); return; }
+    if (!prescText) { alert("أضف أدوية للوصفة أولاً قبيل الصرف!"); return; }
     let patName = currentPatientInExam ? currentPatientInExam.name : "مريض عام";
 
     db.prescriptionsList.unshift({
