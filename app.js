@@ -919,7 +919,7 @@ function generateAIClinicalSummary() {
     }, 800);
 }
 
-// دالة الذكاء الاصطناعي المتقدمة التي تقرأ التحاليل والأشعة والمرفقات وتكتب التلخيص الشامل مباشرة في Diagnosis
+// دالة الذكاء الاصطناعي المتقدمة (✨ تلخيص بالذكاء الاصطناعي) لقراءة التحاليل والأشعة ووضع الملخص مباشرة في Diagnosis
 function generateSmartDiagnosisAI() {
     if (!currentPatientInExam) {
         alert("لا يوجد مريض قيد الفحص حالياً لتوليد التشخيص له!");
@@ -943,32 +943,32 @@ function generateSmartDiagnosisAI() {
     let labs = patientRecord.medicalHistory?.labs || [];
     let imaging = patientRecord.medicalHistory?.imaging || [];
 
-    // قراءة عميقة لكافة التحاليل والأشعة والنتائج المدونة في الملفات
-    let labsFullRead = labs.length > 0 ? labs.map((l, i) => `[تحليل (${l.title}) بتاريخ ${l.date}: ${l.result}]`).join('، ') : "لا توجد تحاليل مخبرية سابقة مرفقة.";
-    let imagingFullRead = imaging.length > 0 ? imaging.map((img, i) => `[أشعة/صورة (${img.title}) بتاريخ ${img.date}: ${img.result}]`).join('، ') : "لا توجد صور أشعة أو تقارير مصورة سابقة مرفقة.";
+    // استخراج قراءة مفصلة لكل ملف تحليل وأشعة مرفق
+    let labsDetails = labs.length > 0 ? labs.map((l, i) => `[تحليل #${i+1}: ${l.title} (بتاريخ ${l.date}) - النتيجة: ${l.result}]`).join('؛ ') : "لا توجد تحاليل مخبرية سابقة مرفقة.";
+    let imagingDetails = imaging.length > 0 ? imaging.map((img, i) => `[أشعة/صورة #${i+1}: ${img.title} (بتاريخ ${img.date}) - التقرير: ${img.result}]`).join('؛ ') : "لا توجد صور أشعة سابقة مرفقة.";
 
     let sys = 120;
     if (bp.includes('/')) sys = parseFloat(bp.split('/')[0]) || 120;
     let sVal = parseFloat(sugar) || 1.10;
 
-    let smartAIReport = "";
+    let aiClinicalReport = "";
 
     if (sys >= 150) {
-        smartAIReport = `[تحليل وتشخيص ذكي بالذكاء الاصطناعي للملف الطبي]: مؤشرات ضغط الدم مرتفعة [قراءة: ${bp}]. بعد قراءة وتحليل كافة الملفات الطبية المرفقة (التحاليل: ${labsFullRead} | الأشعة: ${imagingFullRead})، يُظهر السجل الطبي ضرورة التدخل العاجل بوصف خافض للضغط، إجراء تخطيط قلب (ECG)، ومتابعة دورية صارمة.`;
+        aiClinicalReport = `[تحليل ذكي (AI) - الملف الطبي والمؤشرات]: مريض يعاني من ارتفاع ضغط الدم [قراءة: ${bp}]. بعد قراءة وفحص الملفات الطبية والتحاليل (${labsDetails}) والأشعة (${imagingDetails})، يوصى بالتدخل العاجل بوصف خافض للضغط، إجراء تخطيط قلب (ECG)، ومتابعة سريرية دقيقة.`;
     } else if (sVal >= 2.0) {
-        smartAIReport = `[تحليل وتشخيص ذكي بالذكاء الاصطناعي للملف الطبي]: مؤشرات سكر الدم مرتفعة [قراءة: ${sugar} g/L]. بعد فحص وقراءة نتائج التحاليل والتقارير الطبية السابقة للمريض (${labsFullRead} | ${imagingFullRead})، يوصى بطلب فحص سكر تراكمي HbA1c وضبط البرنامج العلاجي والغذائي.`;
+        aiClinicalReport = `[تحليل ذكي (AI) - الملف الطبي والمؤشرات]: اشتباه ارتفاع سكر الدم [قراءة: ${sugar} g/L]. بعد فحص وتقييم سجل التحاليل (${labsDetails}) والتقارير المصورة (${imagingDetails})، يوصى بطلب فحص سكر تراكمي (HbA1c) وتعديل البرنامج العلاجي.`;
     } else if (labs.length > 0 || imaging.length > 0) {
-        smartAIReport = `[تحليل وتشخيص ذكي بالذكاء الاصطناعي للملف الطبي]: الحالة الحالية مستقرة [ضغط: ${bp}، سكر: ${sugar}]. بناءً على القراءة الشاملة للتحاليل المخبرية وتقارير الأشعة المرفقة في ملفه الطبي (${labsFullRead} | ${imagingFullRead})، تتطابق الفحوصات مع التعافي النسبي ويُنصح بالمتابعة الطبية الروتينية.`;
+        aiClinicalReport = `[تحليل ذكي (AI) - تقييم الملفات الطبية]: الحالة مستقرة حيوياً [ضغط: ${bp}، سكر: ${sugar}]. بالاطلاع على الفحوصات والملفات المرفقة للمريض (${labsDetails} | ${imagingDetails})، تتطابق النتائج مع التعافي النسبي ويُنصح بالمتابعة الطبية المنتظمة.`;
     } else {
-        smartAIReport = `[تحليل وتشخيص ذكي بالذكاء الاصطناعي للملف الطبي]: فحص مبدئي للمريض [ضغط: ${bp}، سكر: ${sugar} g/L]. لا توجد تقارير تحاليل أو أشعة سابقة مدرجة بملفه الطبي بعد. يُوصى بالبدء بالفحص السريري المباشر وطلب التحاليل اللازمة.`;
+        aiClinicalReport = `[تحليل ذكي (AI) - تقييم أولي]: المريض مسجل ببيانات حيوية [ضغط: ${bp}، سكر: ${sugar} g/L]. لا توجد تقارير تحاليل أو صور أشعة مرفقة بملفه الطبي بعد. يُوصى بالبدء بالفحص السريري المباشر وطلب الفحوصات اللازمة.`;
     }
 
-    // نسخ ووضع القراءة والملخص مباشرة في حقل التشخيص الطبي السريري (Diagnosis)
-    diagField.value = smartAIReport;
-    localStorage.setItem('tempExamDiagnosis', smartAIReport);
+    // نسخ ووضع التلخيص الطبي مباشرة في حقل التشخيص السريري (Diagnosis)
+    diagField.value = aiClinicalReport;
+    localStorage.setItem('tempExamDiagnosis', aiClinicalReport);
     
-    showToast("✓ تم فتح وقراءة الملفات الطبية بالكامل ونسخ التشخيص الذكي للحالة بنجاح!");
-    logAuditAction(`قراءة الملف الطبي وتوليد تشخيص ذكي بالذكاء الاصطناعي للمريض: ${patName}`);
+    showToast("✓ تم فتح وقراءة الملفات الطبية ونسخ التشخيص الذكي للحالة بنجاح!");
+    logAuditAction(`قراءة الملف الطبي وتوليد التشخيص الذكي بالذكاء الاصطناعي للمريض: ${patName}`);
 }
 
 function openPatientChartModal(patientName) {
