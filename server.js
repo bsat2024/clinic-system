@@ -7,7 +7,8 @@ const fs = require('fs');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // السماح برفع ملفات كبيرة الحجم (صور وأشعة)
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const DB_FILE = path.join(__dirname, 'clinic_db.json');
 
@@ -71,15 +72,12 @@ app.use(express.static(path.join(__dirname)));
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: "*", methods: ["GET", "POST"] },
-    pingTimeout: 60000,
-    pingInterval: 25000
+    maxHttpBufferSize: 50 * 1024 * 1024 // السماح بنقل الملفات عبر الـ Socket
 });
 
 io.on('connection', (socket) => {
-    // إرسال القاعدة الحالية فوراً للعميل المتصل
     socket.emit('sync-clinic-data', clinicDatabase);
 
-    // استقبال البيانات وتحديث السيرفر وبثها لكل العملاء المتصلين بدون استثناء
     socket.on('update-clinic-data', (incomingData) => {
         if (incomingData) {
             if (incomingData.patientsList && Array.isArray(incomingData.patientsList)) {
@@ -94,16 +92,26 @@ io.on('connection', (socket) => {
                         exists.visitsCount = Math.max(exists.visitsCount || 1, incPat.visitsCount || 1);
                         if (incPat.phone) exists.phone = incPat.phone;
                         if (incPat.dob) exists.dob = incPat.dob;
+                        
+                        // دمج السجل الطبي والملفات المرفقة بضمان تام
                         if (incPat.medicalHistory) {
                             if (!exists.medicalHistory) exists.medicalHistory = { labs: [], imaging: [] };
+                            
                             incPat.medicalHistory.labs?.forEach(l => {
-                                if (!exists.medicalHistory.labs.some(x => x.title === l.title && x.date === l.date)) {
+                                let matchIdx = exists.medicalHistory.labs.findIndex(x => x.title === l.title && x.date === l.date);
+                                if (matchIdx === -1) {
                                     exists.medicalHistory.labs.push(l);
+                                } else if (l.fileData) {
+                                    exists.medicalHistory.labs[matchIdx] = l; // تحديث الملف إذا تم إرفاقه حديثاً
                                 }
                             });
+
                             incPat.medicalHistory.imaging?.forEach(img => {
-                                if (!exists.medicalHistory.imaging.some(x => x.title === img.title && x.date === img.date)) {
+                                let matchIdx = exists.medicalHistory.imaging.findIndex(x => x.title === img.title && x.date === img.date);
+                                if (matchIdx === -1) {
                                     exists.medicalHistory.imaging.push(img);
+                                } else if (img.fileData) {
+                                    exists.medicalHistory.imaging[matchIdx] = img; // تحديث الملف
                                 }
                             });
                         }
@@ -111,37 +119,24 @@ io.on('connection', (socket) => {
                 });
             }
 
-            if (incomingData.triageQueue) {
-                clinicDatabase.triageQueue = incomingData.triageQueue;
-            }
-
-            if (incomingData.currentPatientInExam !== undefined) {
-                clinicDatabase.currentPatientInExam = incomingData.currentPatientInExam;
-            }
-
+            if (incomingData.triageQueue) clinicDatabase.triageQueue = incomingData.triageQueue;
+            if (incomingData.currentPatientInExam !== undefined) clinicDatabase.currentPatientInExam = incomingData.currentPatientInExam;
+            
             if (incomingData.invoicesList) {
                 incomingData.invoicesList.forEach(inv => {
-                    if (!clinicDatabase.invoicesList.some(i => i.invNum === inv.invNum)) {
-                        clinicDatabase.invoicesList.push(inv);
-                    }
+                    if (!clinicDatabase.invoicesList.some(i => i.invNum === inv.invNum)) clinicDatabase.invoicesList.push(inv);
                 });
             }
 
             if (incomingData.appointments) {
                 incomingData.appointments.forEach(app => {
-                    if (!clinicDatabase.appointments.some(a => a.name === app.name && a.date === app.date)) {
-                        clinicDatabase.appointments.push(app);
-                    }
+                    if (!clinicDatabase.appointments.some(a => a.name === app.name && a.date === app.date)) clinicDatabase.appointments.push(app);
                 });
             }
 
-            if (incomingData.auditLogs) {
-                clinicDatabase.auditLogs = incomingData.auditLogs;
-            }
+            if (incomingData.auditLogs) clinicDatabase.auditLogs = incomingData.auditLogs;
 
             saveDatabaseToFile();
-            
-            // بث التحديث الفوري إلى كافة شاشات الاستقبال والمدير والطبيب
             io.emit('sync-clinic-data', clinicDatabase);
         }
     });
@@ -153,5 +148,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`السيرفر يعمل بكفاءة على البورت: ${PORT}`);
+    console.log(`سيرفر العيادة يعمل بكفاءة على البورت: ${PORT}`);
 });

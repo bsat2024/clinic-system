@@ -56,10 +56,43 @@ try {
         }
     });
     
-    // المزامنة الفورية الجبرية: اعتماد أحدث نسخة قادمة من السيرفر لجميع الطرفين لحظياً
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData && serverData.patientsList) {
-            db = serverData; // مزامنة مطلقة لكل قاعدة البيانات المحدثة من السيرفر
+            serverData.patientsList.forEach(sPat => {
+                let localPat = db.patientsList.find(p => 
+                    (p.idCard && sPat.idCard && p.idCard.trim() === sPat.idCard.trim()) || 
+                    (p.name && sPat.name && p.name.trim().toLowerCase() === sPat.name.trim().toLowerCase())
+                );
+                if (!localPat) {
+                    db.patientsList.push(sPat);
+                } else {
+                    localPat.visitsCount = Math.max(localPat.visitsCount || 1, sPat.visitsCount || 1);
+                    if (sPat.phone) localPat.phone = sPat.phone;
+                    if (sPat.dob) localPat.dob = sPat.dob;
+                    if (sPat.medicalHistory) {
+                        if (!localPat.medicalHistory) localPat.medicalHistory = { labs: [], imaging: [] };
+                        sPat.medicalHistory.labs?.forEach(l => {
+                            let idx = localPat.medicalHistory.labs.findIndex(x => x.title === l.title && x.date === l.date);
+                            if (idx === -1) localPat.medicalHistory.labs.push(l);
+                            else if (l.fileData) localPat.medicalHistory.labs[idx] = l;
+                        });
+                        sPat.medicalHistory.imaging?.forEach(img => {
+                            let idx = localPat.medicalHistory.imaging.findIndex(x => x.title === img.title && x.date === img.date);
+                            if (idx === -1) localPat.medicalHistory.imaging.push(img);
+                            else if (img.fileData) localPat.medicalHistory.imaging[idx] = img;
+                        });
+                    }
+                }
+            });
+
+            db.triageQueue = serverData.triageQueue || [];
+            
+            serverData.invoicesList.forEach(inv => {
+                if (!db.invoicesList.some(i => i.invNum === inv.invNum)) db.invoicesList.push(inv);
+            });
+            serverData.appointments.forEach(app => {
+                if (!db.appointments.some(a => a.name === app.name && a.date === app.date)) db.appointments.push(app);
+            });
 
             if (serverData.currentPatientInExam !== undefined) {
                 currentPatientInExam = serverData.currentPatientInExam;
@@ -110,7 +143,7 @@ function saveAndSync() {
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });
-        showToast("✓ تم الحفظ والمزامنة الفورية مع الاستقبال والطبيب");
+        showToast("✓ تم الحفظ والمزامنة الفورية");
     } else {
         showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان");
     }
@@ -1115,7 +1148,7 @@ function openModal(type) {
     document.querySelectorAll('#modal-invoice, #modal-simple').forEach(el => el.classList.add('hidden'));
     document.querySelectorAll('.simple-form').forEach(el => el.classList.add('hidden'));
     if (type === 'invoice') {
-        document.getElementById('modal-invoice').classList.remove('hidden');
+        document.getElementById('modal-invoice').classList.add('hidden'); // placeholder
     } else {
         document.getElementById('modal-simple').classList.remove('hidden');
         if (type === 'patient') document.getElementById('form-newPatient').classList.remove('hidden');
