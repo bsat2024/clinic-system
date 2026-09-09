@@ -13,8 +13,7 @@ let extraFileBase64 = null;
 let extraFileName = "";
 let selectedPatientForExtraFile = "";
 
-let geminiTempFileBase64 = null;
-let geminiTempFileName = "";
+let doctorPrescriptionTemplates = JSON.parse(localStorage.getItem('clinicDoctorTemplates')) || {};
 
 let currentAllowedTabs = ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'];
 
@@ -55,7 +54,7 @@ try {
         let indicator = document.getElementById('networkStatusIndicator');
         if(indicator) {
             indicator.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> ${currentLang === 'ar' ? 'يعمل محلياً (Offline)' : 'Hors Ligne (Offline)'}`;
-            indicator.className = "text-[11px] font-black px-3.5 py-1.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-2 shadow-sm";
+            indicator.className = "text-[11px] font-black px-3.5 py-1.5 rounded-full bg-amber-100 text-amber-800 border border-emerald-300 flex items-center gap-2 shadow-sm";
         }
     });
     
@@ -102,6 +101,7 @@ async function fetchServerDataInitial() {
 
 function saveAndSync() {
     localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
+    localStorage.setItem('clinicDoctorTemplates', JSON.stringify(doctorPrescriptionTemplates));
     if (currentPatientInExam) {
         localStorage.setItem('currentPatientInExam', JSON.stringify(currentPatientInExam));
     } else {
@@ -136,12 +136,12 @@ function refreshAllUIs() {
     loadCurrentExamCard();
     updateLiveBottomActiveBar();
     populateDoctorQueueQuickDropdown();
+    renderDoctorPrescriptionTemplatesList();
     if (document.getElementById('tab-dashboard') && !document.getElementById('tab-dashboard').classList.contains('hidden')) {
         initDashboardCharts();
     }
 }
 
-// قاموس الترجمة الشامل المحدث والمراجع لكل أقسام النظام وجداوله
 const translations = {
     ar: {
         pageTitle: "عيادات الأسرة | النظام الطبي الاحترافي",
@@ -189,8 +189,9 @@ const translations = {
         btnInsertFileExam: "إدراج ملف",
         txtExamLabsHeader: "سجل التحاليل المخبرية",
         txtExamImagingHeader: "سجل الأشعة والتصوير",
-        txtPrescModelTitle: "صرف الوصفات الطبية والأدوية (نموذج منظم)",
-        txtPrescModelSub: "إدخال تفصيلي لاسم الدواء، الجرعات، التوقيت، ومدة العلاج",
+        txtPrescModelTitle: "صرف الوصفات الطبية والأدوية",
+        txtPrescModelSub: "اختر الطبيب المعالج لاستخدام قالب الوصفة الفارغة الخاص به، وأضف الأدوية",
+        lblSelectDoctorPrescTemplate: "👨‍⚕️ اختيار طبيب العيادة وقالب الوصفة المرجعي:",
         lblDrugName: "اسم الدواء",
         lblDosesCount: "عدد الجرعات في اليوم",
         lblDrugTime: "وقت شرب الدواء",
@@ -206,7 +207,7 @@ const translations = {
         lblDiagnosisHeader: "التشخيص الطبي السريري (Diagnosis)",
         txtQuickSymptoms: "أعراض سريعة:",
         lblProcedureHeader: "الإجراءات الطبية (Procedure)",
-        btnPrintPresc: "طباعة الوصفة الطبية",
+        btnPrintPresc: "طباعة الوصفة الطبية (حسب قالب الطبيب المختار)",
         btnFinishText: "إنهاء الفحص وتخريج المريض",
         txtPatientInExamLabel: "المريض قيد الفحص حالياً",
         txtExamCardBP: "ضغط",
@@ -285,7 +286,7 @@ const translations = {
         navAppts: "المواعيد",
         navPats: "المرضى",
         navDocs: "الأطباء",
-        navPresc: "الوصفات",
+        navPresc: "الوصفات والأطباء",
         navInvoices: "الفواتير",
         navReports: "التقارير",
         navStaff: "المستخدمين",
@@ -338,8 +339,9 @@ const translations = {
         btnInsertFileExam: "Insérer un fichier",
         txtExamLabsHeader: "Registre des Analyses de Labo",
         txtExamImagingHeader: "Registre d'Imagerie & Radiologie",
-        txtPrescModelTitle: "Délivrance d'Ordonnances et Médicaments (Modèle)",
-        txtPrescModelSub: "Saisie détaillée du médicament, doses, moment et durée",
+        txtPrescModelTitle: "Ordonnances et Modèles de Médecins",
+        txtPrescModelSub: "Sélectionnez le médecin traitant pour utiliser son modèle d'ordonnance et ajouter des médicaments",
+        lblSelectDoctorPrescTemplate: "👨‍⚕️ Sélection du Médecin et Modèle d'Ordonnance:",
         lblDrugName: "Nom du Médicament",
         lblDosesCount: "Doses par Jour",
         lblDrugTime: "Moment de Prise",
@@ -355,7 +357,7 @@ const translations = {
         lblDiagnosisHeader: "Diagnostic Clinique Médical (Diagnosis)",
         txtQuickSymptoms: "Symptômes rapides:",
         lblProcedureHeader: "Procédures Médicales (Procedure)",
-        btnPrintPresc: "Imprimer l'Ordonnance",
+        btnPrintPresc: "Imprimer l'Ordonnance (Modèle du médecin)",
         btnFinishText: "Terminer l'examen et libérer le patient",
         txtPatientInExamLabel: "Patient en cours d'examen",
         txtExamCardBP: "Tension",
@@ -434,7 +436,7 @@ const translations = {
         navAppts: "Rendez-vous",
         navPats: "Patients",
         navDocs: "Médecins",
-        navPresc: "Ordonnances",
+        navPresc: "Ordonnances & Médecins",
         navInvoices: "Facturation",
         navReports: "Rapports",
         navStaff: "Utilisateurs",
@@ -450,7 +452,7 @@ const allAvailableViews = [
     { id: 'appointments', ar: 'المواعيد', fr: 'Rendez-vous', icon: 'fa-calendar-check text-lg', badgeKey: 'appts' },
     { id: 'patients', ar: 'المرضى', fr: 'Patients', icon: 'fa-user-injured text-lg' },
     { id: 'doctors', ar: 'الأطباء', fr: 'Médecins', icon: 'fa-user-doctor text-lg' },
-    { id: 'prescriptions', ar: 'الوصفات الطبية', fr: 'Ordonnances', icon: 'fa-prescription-bottle-medical text-lg' },
+    { id: 'prescriptions', ar: 'الوصفات والأطباء', fr: 'Ordonnances & Médecins', icon: 'fa-prescription-bottle-medical text-lg' },
     { id: 'invoices', ar: 'الفواتير والتحصيل', fr: 'Facturation', icon: 'fa-file-invoice-dollar text-lg' },
     { id: 'reports', ar: 'التقارير والإحصائيات', fr: 'Rapports', icon: 'fa-chart-pie text-lg' },
     { id: 'staff', ar: 'صلاحيات المستخدمين', fr: 'Permissions', icon: 'fa-users-gear text-lg' },
@@ -846,6 +848,53 @@ function populateDoctorQueueQuickDropdown() {
     if (sel) { sel.innerHTML = `<option value="">${currentLang==='ar'?'-- اختر مريضاً للفحص --':'-- Choisir un patient --'}</option>`; db.triageQueue.forEach(item => sel.innerHTML += `<option>${item.name}</option>`); }
 }
 
+// عرض واجهة إدارة قوالب الوصفات الخاصة بالأطباء في قسم الوصفات
+function renderDoctorPrescriptionTemplatesList() {
+    const container = document.getElementById('doctorTemplatesContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    if (db.doctorsList.length === 0) {
+        container.innerHTML = `<p class="text-gray-400 text-xs">${currentLang==='ar'?'لا توجد أطباء مسجلين':'Aucun médecin enregistré'}</p>`;
+        return;
+    }
+    db.doctorsList.forEach((doc, idx) => {
+        let savedTemplate = doctorPrescriptionTemplates[doc.name];
+        let hasFile = savedTemplate && savedTemplate.fileName;
+        container.innerHTML = `
+            <div class="p-3.5 rounded-2xl border bg-gray-50 flex flex-col justify-between gap-2 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="font-black text-xs text-purple-900"><i class="fa-solid fa-user-doctor text-[#0097b2]"></i> ${doc.name} (${doc.specialty})</span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg ${hasFile?'bg-emerald-100 text-emerald-800':'bg-amber-100 text-amber-800'}">
+                        ${hasFile ? (currentLang==='ar'?'تم إرفاق القالب ✓':'Modèle joint ✓') : (currentLang==='ar'?'لا يوجد قالب':'Pas de modèle')}
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="file" id="docTemplateFile-${idx}" accept="image/*,.pdf" class="hidden" onchange="handleDoctorTemplateUpload(event, '${doc.name}')">
+                    <button type="button" onclick="document.getElementById('docTemplateFile-${idx}').click()" class="flex-1 bg-white border border-purple-300 hover:bg-purple-50 text-purple-700 py-2 rounded-xl text-xs font-bold transition">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> ${hasFile ? (currentLang==='ar'?'تغيير قالب الوصفة الفارغة':'Modifier le modèle') : (currentLang==='ar'?'إرفاق صورة/PDF الوصفة الفارغة':'Joindre modèle vide')}
+                    </button>
+                    ${hasFile ? `<button type="button" onclick="previewMedicalFile('${savedTemplate.fileData}', '${savedTemplate.fileName}')" class="bg-blue-50 text-blue-700 px-3 py-2 rounded-xl text-xs font-bold"><i class="fa-solid fa-eye"></i></button>` : ''}
+                </div>
+            </div>
+        `;
+    });
+}
+
+function handleDoctorTemplateUpload(event, doctorName) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        doctorPrescriptionTemplates[doctorName] = {
+            fileName: file.name,
+            fileData: e.target.result
+        };
+        saveAndSync();
+        showToast(currentLang === 'ar' ? `✓ تم حفظ قالب الوصفة الفارغة للطبيب: ${doctorName}` : `✓ Modèle enregistré pour le Dr ${doctorName}`);
+    };
+    reader.readAsDataURL(file);
+}
+
 function toggleLanguage() {
     currentLang = currentLang === 'ar' ? 'fr' : 'ar';
     localStorage.setItem('clinicLang', currentLang);
@@ -867,6 +916,7 @@ function applyLanguage() {
     buildSidebarMenu();
     loadTriageQueue();
     updateLiveBottomActiveBar();
+    renderDoctorPrescriptionTemplatesList();
     if (currentPatientInExam) renderPatientMedicalHistoryInExam(currentPatientInExam.name);
 }
 
@@ -1100,99 +1150,6 @@ function saveExtraPatientFile(e) {
     } else {
         alert(currentLang === 'ar' ? "لم يتم العثور على المريض المحدد!" : "Patient introuvable !");
     }
-}
-
-// فتح نافذة محرك Gemini AI
-function openGeminiAnalysisModal() {
-    if (!currentPatientInExam) {
-        alert(currentLang === 'ar' ? "لا يوجد مريض حالياً في غرفة الفحص لتحليله!" : "Aucun patient en examen pour analyse !");
-        return;
-    }
-    geminiTempFileBase64 = null;
-    geminiTempFileName = "";
-    document.getElementById('geminiPatientUploadInput').value = "";
-    document.getElementById('geminiFileStatusLabel').innerText = currentLang === 'ar' ? "سيتم قراءة هذا المستند مع السجل التراكمي للمريض تلقائياً." : "Ce document sera lu avec le dossier cumulé du patient.";
-    document.getElementById('geminiAnalysisResultBox').innerText = currentLang === 'ar' ? "قم بتحميل مستند المريض (صورة تحليل أو تقرير أشعة PDF) ثم اضغط على (بدء تحليل الملفات واستخراج التشخيص)." : "Téléchargez le document du patient puis cliquez sur (Lancer l'analyse).";
-    document.getElementById('modal-gemini-ai-assistant').classList.remove('hidden');
-}
-
-function handleGeminiFileSelection(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    geminiTempFileName = file.name;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        geminiTempFileBase64 = e.target.result;
-        document.getElementById('geminiFileStatusLabel').innerText = (currentLang === 'ar' ? `✓ تم إرفاق الملف: ` : `✓ Fichier joint: `) + file.name;
-    };
-    reader.readAsDataURL(file);
-}
-
-// محرك الذكاء الاصطناعي لتحليل الملف والسجل الطبي للمريض
-function runGeminiAIAnalysis() {
-    if (!currentPatientInExam) return;
-    
-    const resultBox = document.getElementById('geminiAnalysisResultBox');
-    resultBox.innerHTML = `<div class="flex items-center justify-center py-8 text-indigo-700 gap-2 font-bold"><i class="fa-solid fa-brain fa-spin text-lg"></i> ${currentLang === 'ar' ? 'محرك Gemini AI يحلل المستندات والسجل الطبي للمريض الآن...' : 'Le moteur Gemini AI analyse les documents...'}</div>`;
-
-    setTimeout(() => {
-        let patName = currentPatientInExam.name;
-        let bp = currentPatientInExam.bp || "12/8";
-        let sugar = currentPatientInExam.sugar || "1.10";
-
-        let patientRecord = db.patientsList.find(p => p.name.trim().toLowerCase() === patName.trim().toLowerCase());
-        let labs = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.labs) || [];
-        let imaging = (patientRecord && patientRecord.medicalHistory && patientRecord.medicalHistory.imaging) || [];
-
-        let labsSummary = labs.length > 0 ? labs.map(l => `• Lab [${l.title}] (${l.date}): ${l.result}`).join('\n') : (currentLang === 'ar' ? "لا توجد تحاليل مسجلة مسبقاً." : "Aucune analyse enregistrée.");
-        let imagingSummary = imaging.length > 0 ? imaging.map(img => `• Radio [${img.title}] (${img.date}): ${img.result}`).join('\n') : (currentLang === 'ar' ? "لا توجد صور أشعة مسجلة مسبقاً." : "Aucune imagerie enregistrée.");
-
-        let smartReport = currentLang === 'ar' ? `[تقرير قراءة وتحليل Gemini AI الطبي]:
-المريض: ${patName} | العلامات الحيوية: ضغط الدم (${bp}) - سكر الدم (${sugar} g/L)
-
-🧪 نتائج التحاليل:
-${labsSummary}
-
-🩻 تقارير الأشعة:
-${imagingSummary}
-
-🩺 الخلاصة الإكلينيكية والتشخيص المقترح:
-المؤشرات الحيوية وملفات الفحص المرفقة توضح استقرار الحالة مع وجود ملاحظات طفيفة تتطلب متابعة دورية ووصف العلاج المناسب.` : `[Rapport d'analyse médicale Gemini AI]:
-Patient: ${patName} | Signes vitaux: Tension (${bp}) - Glycémie (${sugar} g/L)
-
-🧪 Analyses:
-${labsSummary}
-
-🩻 Imagerie:
-${imagingSummary}
-
-🩺 Conclusion clinique et diagnostic suggéré:
-Les signes vitaux et examens joints montrent une stabilité avec de légères observations nécessitant un suivi.`;
-
-        resultBox.innerText = smartReport;
-        showToast(currentLang === 'ar' ? "✓ تم تحليل الملفات بنجاح بواسطة محرك Gemini AI!" : "✓ Fichiers analysés avec succès par Gemini AI !");
-        logAuditAction(`تحليل ملفات المريض ${patName} عبر محرك Gemini AI`);
-    }, 1200);
-}
-
-// نسخ نتائج تحليل Gemini إلى خانة Diagnosis
-function copyGeminiResultToDiagnosis() {
-    const resultBox = document.getElementById('geminiAnalysisResultBox');
-    const diagField = document.getElementById('examDiagnosis');
-    
-    if (!diagField || !resultBox) return;
-
-    let textContent = resultBox.innerText;
-    if (!textContent || textContent.includes("قم بتحميل مستند") || textContent.includes("Téléchargez")) {
-        alert(currentLang === 'ar' ? "يرجى إجراء تحليل الملفات أولاً عبر الضغط على زر البدء!" : "Veuillez d'abord lancer l'analyse !");
-        return;
-    }
-
-    diagField.value = textContent;
-    localStorage.setItem('tempExamDiagnosis', textContent);
-    closeModal('gemini-ai-assistant');
-    showToast(currentLang === 'ar' ? "✓ تم نسخ تقرير وتحليل الذكاء الاصطناعي بنجاح إلى حقل التشخيص (Diagnosis)!" : "✓ Rapport copié dans le champ Diagnostic !");
-    logAuditAction(`نسخ تشخيص Gemini للمريض: ${currentPatientInExam.name}`);
 }
 
 function openPatientChartModal(patientName) {
@@ -1582,28 +1539,57 @@ function saveAndDispensePrescription() {
     renderCurrentPrescriptionTable();
 }
 
+// الطباعة بناءً على قالب الوصفة الفارغة المرفق للطبيب المختار
 function printPrescriptionReport() {
     let patName = currentPatientInExam ? currentPatientInExam.name : (currentLang === 'ar' ? "غير محدد" : "Non spécifié");
+    let docName = currentPatientInExam ? currentPatientInExam.doctor : (currentLang === 'ar' ? "د. أحمد" : "Dr Ahmed");
     let diag = document.getElementById('examDiagnosis').value || (currentLang === 'ar' ? "غير مدون" : "Non renseigné");
     let proc = document.getElementById('examProcedure').value || (currentLang === 'ar' ? "غير مدون" : "Non renseigné");
     let presc = document.getElementById('examPrescriptionText').value || (currentLang === 'ar' ? "لا توجد أدوية" : "Aucun médicament");
     
-    let printWindow = window.open('', '_printWindow', 'width=800,height=600');
+    let templateObj = doctorPrescriptionTemplates[docName];
+    let templateImageHtml = "";
+
+    if (templateObj && templateObj.fileData) {
+        if (templateObj.fileData.startsWith('data:application/pdf') || templateObj.fileData.includes('pdf')) {
+            templateImageHtml = `<iframe src="${templateObj.fileData}" style="position:absolute; width:100%; height:100%; top:0; left:0; z-index:-1; border:none;"></iframe>`;
+        } else {
+            templateImageHtml = `<div style="position:absolute; width:100%; height:100%; top:0; left:0; z-index:-1; opacity:0.18; background:url('${templateObj.fileData}') no-repeat center center; background-size:contain;"></div>`;
+        }
+    }
+
+    let printWindow = window.open('', '_printWindow', 'width=900,height=700');
     printWindow.document.write(`
         <html dir="${currentLang === 'ar' ? 'rtl' : 'ltr'}">
-        <head><title>${currentLang === 'ar' ? 'تقرير ووصفة طبية' : 'Rapport & Ordonnance'}</title>
-        <style>body{font-family:Tahoma;padding:20px;color:#333;} h2{color:#0097b2;border-bottom:2px solid #0097b2;padding-bottom:10px;}</style>
+        <head><title>${currentLang === 'ar' ? 'وصفة طبية' : 'Ordonnance'}</title>
+        <style>
+            body{font-family:Tahoma,sans-serif; padding:40px; color:#111; position:relative; min-height:90vh;}
+            .header-info{display:flex; justify-between; border-bottom:2px solid #0097b2; padding-bottom:15px; margin-bottom:25px;}
+            .content-box{margin-bottom:20px; font-size:14px; line-height:1.6;}
+            .footer-sign{margin-top:50px; text-align:${currentLang === 'ar' ? 'left' : 'right'}; font-weight:bold;}
+        </style>
         </head>
         <body onload="window.print();window.close()">
-            <h2>${currentLang === 'ar' ? 'عيادات الأسرة الطبية | تقرير الفحص والوصفة' : 'Clinique Familiale | Rapport d\'Examen & Ordonnance'}</h2>
-            <p><b>${currentLang === 'ar' ? 'اسم المريض:' : 'Nom du patient:'}</b> ${patName}</p>
-            <p><b>${currentLang === 'ar' ? 'التاريخ:' : 'Date:'}</b> ${new Date().toLocaleDateString()}</p>
-            <hr/>
-            <p><b>${currentLang === 'ar' ? 'التشخيص:' : 'Diagnostic:'}</b><br/>${diag}</p>
-            <p><b>${currentLang === 'ar' ? 'الإجراءات:' : 'Procédures:'}</b><br/>${proc}</p>
-            <p><b>${currentLang === 'ar' ? 'الوصفة الطبية:' : 'Ordonnance:'}</b><br/>${presc.replace(/\n/g, '<br/>')}</p>
-            <br/><br/>
-            <div style="text-align: ${currentLang === 'ar' ? 'left' : 'right'};"><b>${currentLang === 'ar' ? 'ختم الطبيب المعالج' : 'Cachet du Médecin'}</b></div>
+            ${templateImageHtml}
+            <div class="header-info">
+                <div>
+                    <h2>${currentLang === 'ar' ? 'عيادات الأسرة الطبية' : 'Cabinet Médical Familial'}</h2>
+                    <p><b>${currentLang === 'ar' ? 'الطبيب المعالج:' : 'Médecin:'}</b> ${docName}</p>
+                </div>
+                <div>
+                    <p><b>${currentLang === 'ar' ? 'اسم المريض:' : 'Patient:'}</b> ${patName}</p>
+                    <p><b>${currentLang === 'ar' ? 'التاريخ:' : 'Date:'}</b> ${new Date().toLocaleDateString()}</p>
+                </div>
+            </div>
+            <div class="content-box">
+                <p><b>${currentLang === 'ar' ? 'التشخيص السريري:' : 'Diagnostic:'}</b><br/>${diag}</p>
+            </div>
+            <div class="content-box" style="margin-top: 30px;">
+                <p><b>${currentLang === 'ar' ? 'الـروشـيـتـة / الأدوية الموصوفة:' : 'Prescription Médicale:'}</b><br/><br/>${presc.replace(/\n/g, '<br/>')}</p>
+            </div>
+            <div class="footer-sign">
+                <p>${currentLang === 'ar' ? 'ختم وتوقيع الطبيب' : 'Cachet et Signature'}</p>
+            </div>
         </body>
         </html>
     `);
