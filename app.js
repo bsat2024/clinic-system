@@ -58,7 +58,7 @@ try {
         }
     });
     
-    // المزامنة التلقائية الشاملة لكل أقسام الواجهة والجداول فوراً
+    // استقبال التحديثات الشاملة فور حدوثها في أي قسم وتحديث الواجهة مباشرة
     socket.on('sync-clinic-data', (serverData) => {
         if (serverData) {
             db.patientsList = serverData.patientsList || [];
