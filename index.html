@@ -283,21 +283,12 @@
                             </div>
                         </div>
 
-                        <!-- قسم الوصفات الطبية وقوالب الأطباء -->
-                        <div class="bg-purple-50/60 border border-purple-200 rounded-[2rem] p-6 space-y-5 shadow-sm">
+                        <div class="bg-purple-50/60 border border-purple-200 rounded-[2rem] p-6 space-y-4 shadow-sm">
                             <div class="flex items-center gap-3 border-b border-purple-100 pb-3">
                                 <div class="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center text-lg shadow"><i class="fa-solid fa-prescription-bottle-medical"></i></div>
                                 <div>
-                                    <h4 id="txtPrescModelTitle" class="text-sm font-black text-purple-950">صرف الوصفات الطبية والأدوية</h4>
-                                    <p id="txtPrescModelSub" class="text-[11px] text-gray-500">اختر الطبيب المعالج لاستخدام قالب الوصفة الفارغة الخاص به، وأضف الأدوية</p>
-                                </div>
-                            </div>
-
-                            <!-- قائمة الأطباء وقوالب الوصفات الفارغة (صورة أو PDF) -->
-                            <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
-                                <label id="lblSelectDoctorPrescTemplate" class="block text-xs font-black text-purple-950">👨‍⚕️ اختيار طبيب العيادة وقالب الوصفة المرجعي:</label>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="doctorTemplatesContainer">
-                                    <!-- يتم تعبئتها برمجياً -->
+                                    <h4 id="txtPrescModelTitle" class="text-sm font-black text-purple-950">صرف الوصفات الطبية والأدوية (نموذج منظم)</h4>
+                                    <p id="txtPrescModelSub" class="text-[11px] text-gray-500">إدخال تفصيلي لاسم الدواء، الجرعات، التوقيت، ومدة العلاج</p>
                                 </div>
                             </div>
                             
@@ -416,11 +407,16 @@
                     </div>
                 </div>
 
-                <!-- الأطباء -->
+                <!-- الأطباء وقوالب الوصفات المرجعية -->
                 <div id="tab-doctors" class="tab-content hidden space-y-6">
-                    <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border space-y-6 overflow-x-auto">
-                        <div class="flex justify-between items-center border-b pb-4"><h3 id="docsTabTitle" class="text-xl font-black">قائمة الأطباء</h3><button onclick="openModal('doctor')" id="btnNewDoc" class="bg-purple-600 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow">إضافة طبيب</button></div>
-                        <table class="w-full text-right text-sm border rounded-2xl overflow-hidden shadow-sm min-w-[600px]"><thead><tr class="border-b bg-gray-50 text-xs"><th id="thDocName" class="p-3">الاسم</th><th id="thDocSpec" class="p-3">التخصص</th><th id="thDocShift" class="p-3">الدوام</th><th id="thDocPhone" class="p-3">الهاتف</th><th id="thDocAction" class="p-3">الإجراءات</th></tr></thead><tbody id="doctorsTbody" class="divide-y"></tbody></table>
+                    <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border space-y-6">
+                        <div class="flex justify-between items-center border-b pb-4">
+                            <h3 id="docsTabTitle" class="text-xl font-black">قائمة الأطباء وقوالب الوصفات الفارغة</h3>
+                            <button onclick="openModal('doctor')" id="btnNewDoc" class="bg-purple-600 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow">إضافة طبيب</button>
+                        </div>
+                        <div id="doctorsListWithTemplateContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- يتم تعبئتها برمجياً مع زر التعديل وإرفاق قالب الوصفة الفارغة -->
+                        </div>
                     </div>
                 </div>
 
@@ -532,6 +528,40 @@
                     </div>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <!-- نافذة تعديل بيانات الطبيب وقالب الوصفة الفارغة -->
+    <div id="modal-edit-doctor" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center z-50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md p-8 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <button onclick="closeModal('edit-doctor')" class="font-bold text-lg">&times;</button>
+                <h3 id="txtEditDocModalTitle" class="font-black text-sm text-[#0097b2]">تعديل بيانات الطبيب وقالب الوصفة</h3>
+            </div>
+            <form onsubmit="saveDoctorEditForm(event)" class="space-y-4 text-xs font-bold">
+                <input type="hidden" id="editDocIndex">
+                <div>
+                    <label id="lblEditDocName" class="block mb-1">اسم الطبيب</label>
+                    <input type="text" id="editDocNameInput" required class="w-full border p-3 rounded-2xl bg-white">
+                </div>
+                <div>
+                    <label id="lblEditDocSpec" class="block mb-1">التخصص</label>
+                    <input type="text" id="editDocSpecInput" required class="w-full border p-3 rounded-2xl bg-white">
+                </div>
+                <div>
+                    <label id="lblEditDocShift" class="block mb-1">الدوام</label>
+                    <input type="text" id="editDocShiftInput" required class="w-full border p-3 rounded-2xl bg-white">
+                </div>
+                <div>
+                    <label id="lblEditDocPhone" class="block mb-1">الهاتف</label>
+                    <input type="text" id="editDocPhoneInput" required class="w-full border p-3 rounded-2xl bg-white">
+                </div>
+                <div>
+                    <label id="lblEditDocTemplate" class="block mb-1 text-gray-800">قالب الوصفة الطبية الفارغة (صورة أو PDF مرجعي)</label>
+                    <input type="file" id="editDocTemplateFileInput" accept="image/*,.pdf" class="w-full border p-2.5 rounded-xl bg-gray-50 cursor-pointer">
+                </div>
+                <button type="submit" id="btnSaveEditDoc" class="w-full bg-[#0097b2] text-white py-3.5 rounded-2xl font-bold shadow">حفظ تعديلات الطبيب والقالب</button>
+            </form>
         </div>
     </div>
 

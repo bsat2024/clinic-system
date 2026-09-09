@@ -15,12 +15,13 @@ let selectedPatientForExtraFile = "";
 
 let doctorPrescriptionTemplates = JSON.parse(localStorage.getItem('clinicDoctorTemplates')) || {};
 
-let currentAllowedTabs = ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'];
+// تمت إزالة قسم الوصفات من القائمة الجانبية وأصبحت تدار من قسم الأطباء
+let currentAllowedTabs = ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'invoices', 'reports', 'staff', 'settings'];
 
 let db = JSON.parse(localStorage.getItem('clinicOfflineDB')) || {
     staffList: [
-        { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'] },
-        { name: "موظف الاستقبال", username: "reception", password: "123", role: "receptionist", allowedTabs: ['dashboard', 'reception', 'appointments', 'patients', 'invoices', 'prescriptions'] }
+        { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'invoices', 'reports', 'staff', 'settings'] },
+        { name: "موظف الاستقبال", username: "reception", password: "123", role: "receptionist", allowedTabs: ['dashboard', 'reception', 'appointments', 'patients', 'invoices'] }
     ],
     patientsList: [],
     doctorsList: [
@@ -136,7 +137,6 @@ function refreshAllUIs() {
     loadCurrentExamCard();
     updateLiveBottomActiveBar();
     populateDoctorQueueQuickDropdown();
-    renderDoctorPrescriptionTemplatesList();
     if (document.getElementById('tab-dashboard') && !document.getElementById('tab-dashboard').classList.contains('hidden')) {
         initDashboardCharts();
     }
@@ -189,9 +189,8 @@ const translations = {
         btnInsertFileExam: "إدراج ملف",
         txtExamLabsHeader: "سجل التحاليل المخبرية",
         txtExamImagingHeader: "سجل الأشعة والتصوير",
-        txtPrescModelTitle: "صرف الوصفات الطبية والأدوية",
-        txtPrescModelSub: "اختر الطبيب المعالج لاستخدام قالب الوصفة الفارغة الخاص به، وأضف الأدوية",
-        lblSelectDoctorPrescTemplate: "👨‍⚕️ اختيار طبيب العيادة وقالب الوصفة المرجعي:",
+        txtPrescModelTitle: "صرف الوصفات الطبية والأدوية (نموذج منظم)",
+        txtPrescModelSub: "إدخال تفصيلي لاسم الدواء، الجرعات، التوقيت، ومدة العلاج",
         lblDrugName: "اسم الدواء",
         lblDosesCount: "عدد الجرعات في اليوم",
         lblDrugTime: "وقت شرب الدواء",
@@ -228,8 +227,8 @@ const translations = {
         thPatStatus: "الحالة",
         thPatHealthFile: "الملف الصحي",
         thPatActions: "الإجراءات",
-        docsTabTitle: "قائمة الأطباء والتخصصات",
-        btnNewDoc: "إضافة طبيب",
+        docsTabTitle: "قائمة الأطباء وإدارة قوالب الوصفات المرجعية",
+        btnNewDoc: "إضافة طبيب جديد",
         thDocName: "الاسم",
         thDocSpec: "التخصص",
         thDocShift: "الدوام",
@@ -285,8 +284,7 @@ const translations = {
         navExam: "غرفة الفحص",
         navAppts: "المواعيد",
         navPats: "المرضى",
-        navDocs: "الأطباء",
-        navPresc: "الوصفات والأطباء",
+        navDocs: "الأطباء وقوالب الوصفات",
         navInvoices: "الفواتير",
         navReports: "التقارير",
         navStaff: "المستخدمين",
@@ -339,9 +337,8 @@ const translations = {
         btnInsertFileExam: "Insérer un fichier",
         txtExamLabsHeader: "Registre des Analyses de Labo",
         txtExamImagingHeader: "Registre d'Imagerie & Radiologie",
-        txtPrescModelTitle: "Ordonnances et Modèles de Médecins",
-        txtPrescModelSub: "Sélectionnez le médecin traitant pour utiliser son modèle d'ordonnance et ajouter des médicaments",
-        lblSelectDoctorPrescTemplate: "👨‍⚕️ Sélection du Médecin et Modèle d'Ordonnance:",
+        txtPrescModelTitle: "Délivrance d'Ordonnances et Médicaments (Modèle)",
+        txtPrescModelSub: "Saisie détaillée du médicament, doses, moment et durée",
         lblDrugName: "Nom du Médicament",
         lblDosesCount: "Doses par Jour",
         lblDrugTime: "Moment de Prise",
@@ -378,7 +375,7 @@ const translations = {
         thPatStatus: "Statut",
         thPatHealthFile: "Dossier Santé",
         thPatActions: "Actions",
-        docsTabTitle: "Liste des Médecins et Spécialités",
+        docsTabTitle: "Liste des Médecins & Modèles d'Ordonnances",
         btnNewDoc: "Ajouter un Médecin",
         thDocName: "Nom",
         thDocSpec: "Spécialité",
@@ -435,8 +432,7 @@ const translations = {
         navExam: "Salle d'Examen",
         navAppts: "Rendez-vous",
         navPats: "Patients",
-        navDocs: "Médecins",
-        navPresc: "Ordonnances & Médecins",
+        navDocs: "Médecins & Ordonnances",
         navInvoices: "Facturation",
         navReports: "Rapports",
         navStaff: "Utilisateurs",
@@ -451,8 +447,7 @@ const allAvailableViews = [
     { id: 'examination', ar: 'غرفة الفحص', fr: 'Salle d\'Examen', icon: 'fa-stethoscope text-lg' },
     { id: 'appointments', ar: 'المواعيد', fr: 'Rendez-vous', icon: 'fa-calendar-check text-lg', badgeKey: 'appts' },
     { id: 'patients', ar: 'المرضى', fr: 'Patients', icon: 'fa-user-injured text-lg' },
-    { id: 'doctors', ar: 'الأطباء', fr: 'Médecins', icon: 'fa-user-doctor text-lg' },
-    { id: 'prescriptions', ar: 'الوصفات والأطباء', fr: 'Ordonnances & Médecins', icon: 'fa-prescription-bottle-medical text-lg' },
+    { id: 'doctors', ar: 'الأطباء وقوالب الوصفات', fr: 'Médecins & Ordonnances', icon: 'fa-user-doctor text-lg' },
     { id: 'invoices', ar: 'الفواتير والتحصيل', fr: 'Facturation', icon: 'fa-file-invoice-dollar text-lg' },
     { id: 'reports', ar: 'التقارير والإحصائيات', fr: 'Rapports', icon: 'fa-chart-pie text-lg' },
     { id: 'staff', ar: 'صلاحيات المستخدمين', fr: 'Permissions', icon: 'fa-users-gear text-lg' },
@@ -848,42 +843,114 @@ function populateDoctorQueueQuickDropdown() {
     if (sel) { sel.innerHTML = `<option value="">${currentLang==='ar'?'-- اختر مريضاً للفحص --':'-- Choisir un patient --'}</option>`; db.triageQueue.forEach(item => sel.innerHTML += `<option>${item.name}</option>`); }
 }
 
-// عرض واجهة إدارة قوالب الوصفات الخاصة بالأطباء في قسم الوصفات
-function renderDoctorPrescriptionTemplatesList() {
-    const container = document.getElementById('doctorTemplatesContainer');
-    if (!container) return;
-    container.innerHTML = '';
-    if (db.doctorsList.length === 0) {
-        container.innerHTML = `<p class="text-gray-400 text-xs">${currentLang==='ar'?'لا توجد أطباء مسجلين':'Aucun médecin enregistré'}</p>`;
-        return;
+// عرض قائمة الأطباء مع خيار تعديل البيانات وإرفاق الوصفة الفارغة المرجعية
+function loadDoctors() {
+    let tb = document.getElementById('doctorsTbody');
+    let cardsContainer = document.getElementById('doctorsListWithTemplateContainer');
+    
+    if (tb) {
+        tb.innerHTML = '';
+        db.doctorsList.forEach((d, i) => {
+            let delBtn = currentUserRole === 'admin' ? `<button onclick="deleteDoctor(${i})" class="text-red-500 font-bold"><i class="fa-solid fa-trash"></i></button>` : '';
+            tb.innerHTML += `<tr><td class="py-3 font-bold">${d.name}</td><td class="py-3 text-gray-500">${d.specialty}</td><td class="py-3 text-gray-500">${d.shift}</td><td class="py-3 text-gray-500">${d.phone}</td><td class="py-3 flex gap-2">${delBtn}</td></tr>`;
+        });
     }
-    db.doctorsList.forEach((doc, idx) => {
-        let savedTemplate = doctorPrescriptionTemplates[doc.name];
-        let hasFile = savedTemplate && savedTemplate.fileName;
-        container.innerHTML = `
-            <div class="p-3.5 rounded-2xl border bg-gray-50 flex flex-col justify-between gap-2 shadow-sm">
-                <div class="flex items-center justify-between">
-                    <span class="font-black text-xs text-purple-900"><i class="fa-solid fa-user-doctor text-[#0097b2]"></i> ${doc.name} (${doc.specialty})</span>
-                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg ${hasFile?'bg-emerald-100 text-emerald-800':'bg-amber-100 text-amber-800'}">
-                        ${hasFile ? (currentLang==='ar'?'تم إرفاق القالب ✓':'Modèle joint ✓') : (currentLang==='ar'?'لا يوجد قالب':'Pas de modèle')}
-                    </span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <input type="file" id="docTemplateFile-${idx}" accept="image/*,.pdf" class="hidden" onchange="handleDoctorTemplateUpload(event, '${doc.name}')">
-                    <button type="button" onclick="document.getElementById('docTemplateFile-${idx}').click()" class="flex-1 bg-white border border-purple-300 hover:bg-purple-50 text-purple-700 py-2 rounded-xl text-xs font-bold transition">
-                        <i class="fa-solid fa-cloud-arrow-up"></i> ${hasFile ? (currentLang==='ar'?'تغيير قالب الوصفة الفارغة':'Modifier le modèle') : (currentLang==='ar'?'إرفاق صورة/PDF الوصفة الفارغة':'Joindre modèle vide')}
-                    </button>
-                    ${hasFile ? `<button type="button" onclick="previewMedicalFile('${savedTemplate.fileData}', '${savedTemplate.fileName}')" class="bg-blue-50 text-blue-700 px-3 py-2 rounded-xl text-xs font-bold"><i class="fa-solid fa-eye"></i></button>` : ''}
-                </div>
-            </div>
-        `;
-    });
+
+    if (cardsContainer) {
+        cardsContainer.innerHTML = '';
+        if (db.doctorsList.length === 0) {
+            cardsContainer.innerHTML = `<p class="text-gray-400 text-xs">${currentLang==='ar'?'لا توجد أطباء مسجلين':'Aucun médecin enregistré'}</p>`;
+        } else {
+            db.doctorsList.forEach((doc, idx) => {
+                let savedTemplate = doctorPrescriptionTemplates[doc.name];
+                let hasFile = savedTemplate && savedTemplate.fileName;
+                cardsContainer.innerHTML += `
+                    <div class="p-5 rounded-3xl border bg-white shadow-sm space-y-3">
+                        <div class="flex items-center justify-between border-b pb-2">
+                            <div>
+                                <h4 class="font-black text-sm text-gray-900"><i class="fa-solid fa-user-doctor text-[#0097b2]"></i> ${doc.name}</h4>
+                                <span class="text-[11px] text-gray-500 font-bold">${doc.specialty} | ${doc.shift}</span>
+                            </div>
+                            <button onclick="openEditDoctorModal(${idx})" class="bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-xl text-xs font-bold transition hover:bg-blue-100">
+                                <i class="fa-solid fa-pen-to-square"></i> ${currentLang==='ar'?'تعديل':'Modifier'}
+                            </button>
+                        </div>
+                        <div class="space-y-1.5">
+                            <span class="text-[11px] font-bold text-gray-600 block">${currentLang==='ar'?'قالب الوصفة الفارغة (المرجع للطباعة):':'Modèle d\'ordonnance vide:'}</span>
+                            <div class="flex items-center gap-2">
+                                <input type="file" id="docTplFile-${idx}" accept="image/*,.pdf" class="hidden" onchange="handleDoctorTemplateUpload(event, '${doc.name}')">
+                                <button type="button" onclick="document.getElementById('docTplFile-${idx}').click()" class="flex-1 bg-cyan-50/60 border border-cyan-200 hover:bg-cyan-100 text-[#0097b2] py-2 rounded-xl text-xs font-bold transition">
+                                    <i class="fa-solid fa-file-arrow-up"></i> ${hasFile ? (currentLang==='ar'?'تغيير ملف الوصفة المرجعية':'Modifier le modèle') : (currentLang==='ar'?'إرفاق صورة/PDF الوصفة':'Joindre image/PDF')}
+                                </button>
+                                ${hasFile ? `<button type="button" onclick="previewMedicalFile('${savedTemplate.fileData}', '${savedTemplate.fileName}')" class="bg-blue-50 text-blue-700 px-3.5 py-2 rounded-xl text-xs font-bold border border-blue-200"><i class="fa-solid fa-eye"></i></button>` : ''}
+                            </div>
+                            <p class="text-[10px] ${hasFile?'text-emerald-600':'text-amber-600'} font-black">
+                                ${hasFile ? (currentLang==='ar' ? `✓ مرجع الطباعة الحالي: ${savedTemplate.fileName}` : `✓ Modèle actuel: ${savedTemplate.fileName}`) : (currentLang==='ar' ? '⚠️ لم يتم إرفاق قالب مرجعي بعد' : '⚠️ Aucun modèle joint')}
+                            </p>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    }
+    populateTriageDoctorDropdown();
+}
+
+function openEditDoctorModal(index) {
+    let doc = db.doctorsList[index];
+    if (!doc) return;
+    document.getElementById('editDocIndex').value = index;
+    document.getElementById('editDocNameInput').value = doc.name;
+    document.getElementById('editDocSpecInput').value = doc.specialty;
+    document.getElementById('editDocShiftInput').value = doc.shift;
+    document.getElementById('editDocPhoneInput').value = doc.phone;
+    document.getElementById('editDocTemplateFileInput').value = "";
+    document.getElementById('modal-edit-doctor').classList.remove('hidden');
+}
+
+function saveDoctorEditForm(e) {
+    e.preventDefault();
+    let index = parseInt(document.getElementById('editDocIndex').value);
+    let oldName = db.doctorsList[index].name;
+    let newName = document.getElementById('editDocNameInput').value.trim();
+    let spec = document.getElementById('editDocSpecInput').value.trim();
+    let shift = document.getElementById('editDocShiftInput').value.trim();
+    let phone = document.getElementById('editDocPhoneInput').value.trim();
+
+    db.doctorsList[index] = { name: newName, specialty: spec, shift, phone };
+
+    if (oldName !== newName && doctorPrescriptionTemplates[oldName]) {
+        doctorPrescriptionTemplates[newName] = doctorPrescriptionTemplates[oldName];
+        delete doctorPrescriptionTemplates[oldName];
+    }
+
+    let fileInput = document.getElementById('editDocTemplateFileInput');
+    if (fileInput.files[0]) {
+        let file = fileInput.files[0];
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            doctorPrescriptionTemplates[newName] = {
+                fileName: file.name,
+                fileData: e.target.result
+            };
+            saveAndSync();
+            closeModal('edit-doctor');
+            showToast(currentLang === 'ar' ? "تم تعديل الطبيب وقالب الوصفة بنجاح!" : "Médecin et modèle modifiés avec succès !");
+            logAuditAction(`تعديل بيانات الطبيب: ${newName}`);
+        };
+        reader.readAsDataURL(file);
+    } else {
+        saveAndSync();
+        closeModal('edit-doctor');
+        showToast(currentLang === 'ar' ? "تم تعديل بيانات الطبيب بنجاح!" : "Données du médecin modifiées avec succès !");
+        logAuditAction(`تعديل بيانات الطبيب: ${newName}`);
+    }
 }
 
 function handleDoctorTemplateUpload(event, doctorName) {
     const file = event.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
+    let reader = new FileReader();
     reader.onload = function(e) {
         doctorPrescriptionTemplates[doctorName] = {
             fileName: file.name,
@@ -916,7 +983,7 @@ function applyLanguage() {
     buildSidebarMenu();
     loadTriageQueue();
     updateLiveBottomActiveBar();
-    renderDoctorPrescriptionTemplatesList();
+    loadDoctors();
     if (currentPatientInExam) renderPatientMedicalHistoryInExam(currentPatientInExam.name);
 }
 
@@ -998,6 +1065,7 @@ function switchTab(tabId) {
     let target = document.getElementById(`tab-${tabId}`);
     if (target) target.classList.remove('hidden');
     if (tabId === 'staff') renderStaffManagementTable();
+    if (tabId === 'doctors') loadDoctors();
     if (tabId === 'settings') loadClinicSettingsInputs();
     if (tabId === 'reports') renderAuditLogsTable();
     if (tabId === 'dashboard') initDashboardCharts();
@@ -1310,16 +1378,6 @@ function deleteStaffMember(i) {
     logAuditAction("حذف مستخدم");
 }
 
-function loadDoctors() {
-    let tb = document.getElementById('doctorsTbody');
-    if (!tb) return;
-    tb.innerHTML = '';
-    db.doctorsList.forEach((d, i) => {
-        let delBtn = currentUserRole === 'admin' ? `<button onclick="deleteDoctor(${i})" class="text-red-500 font-bold"><i class="fa-solid fa-trash"></i></button>` : '';
-        tb.innerHTML += `<tr><td class="py-3 font-bold">${d.name}</td><td class="py-3 text-gray-500">${d.specialty}</td><td class="py-3 text-gray-500">${d.shift}</td><td class="py-3 text-gray-500">${d.phone}</td><td class="py-3">${delBtn}</td></tr>`;
-    });
-    populateTriageDoctorDropdown();
-}
 function deleteDoctor(i) {
     db.doctorsList.splice(i, 1);
     saveAndSync();
@@ -1386,8 +1444,7 @@ function closeModal(id) {
     else if (id === 'medical-record') document.getElementById('modal-medical-record').classList.add('hidden');
     else if (id === 'add-patient-file') document.getElementById('modal-add-patient-file').classList.add('hidden');
     else if (id === 'ai-summary') document.getElementById('modal-ai-summary').classList.add('hidden');
-    else if (id === 'ai-chat-assistant') document.getElementById('modal-gemini-ai-assistant').classList.add('hidden');
-    else if (id === 'gemini-ai-assistant') document.getElementById('modal-gemini-ai-assistant').classList.add('hidden');
+    else if (id === 'edit-doctor') document.getElementById('modal-edit-doctor').classList.add('hidden');
     else if (id === 'pdf-viewer') document.getElementById('modal-pdf-viewer').classList.add('hidden');
     else if (id === 'patient-chart-viewer') document.getElementById('modal-patient-chart-viewer').classList.add('hidden');
     else document.getElementById('modal-simple').classList.add('hidden');
@@ -1413,7 +1470,7 @@ function addAppointment(e) {
 
 function addStaff(e) {
     e.preventDefault();
-    db.staffList.push({ name: document.getElementById('sName').value, username: document.getElementById('sUser').value, password: document.getElementById('sPass').value, role: document.getElementById('sRole').value, allowedTabs: ['dashboard', 'reception', 'appointments', 'patients', 'invoices', 'prescriptions'] });
+    db.staffList.push({ name: document.getElementById('sName').value, username: document.getElementById('sUser').value, password: document.getElementById('sPass').value, role: document.getElementById('sRole').value, allowedTabs: ['dashboard', 'reception', 'appointments', 'patients', 'invoices'] });
     saveAndSync();
     closeModal('simple');
     showToast(currentLang === 'ar' ? "تم إنشاء الموظف" : "Employé créé");
@@ -1537,63 +1594,6 @@ function saveAndDispensePrescription() {
     logAuditAction(`صرف وصفة للمريض: ${patName}`);
     currentPrescriptionItems = [];
     renderCurrentPrescriptionTable();
-}
-
-// الطباعة بناءً على قالب الوصفة الفارغة المرفق للطبيب المختار
-function printPrescriptionReport() {
-    let patName = currentPatientInExam ? currentPatientInExam.name : (currentLang === 'ar' ? "غير محدد" : "Non spécifié");
-    let docName = currentPatientInExam ? currentPatientInExam.doctor : (currentLang === 'ar' ? "د. أحمد" : "Dr Ahmed");
-    let diag = document.getElementById('examDiagnosis').value || (currentLang === 'ar' ? "غير مدون" : "Non renseigné");
-    let proc = document.getElementById('examProcedure').value || (currentLang === 'ar' ? "غير مدون" : "Non renseigné");
-    let presc = document.getElementById('examPrescriptionText').value || (currentLang === 'ar' ? "لا توجد أدوية" : "Aucun médicament");
-    
-    let templateObj = doctorPrescriptionTemplates[docName];
-    let templateImageHtml = "";
-
-    if (templateObj && templateObj.fileData) {
-        if (templateObj.fileData.startsWith('data:application/pdf') || templateObj.fileData.includes('pdf')) {
-            templateImageHtml = `<iframe src="${templateObj.fileData}" style="position:absolute; width:100%; height:100%; top:0; left:0; z-index:-1; border:none;"></iframe>`;
-        } else {
-            templateImageHtml = `<div style="position:absolute; width:100%; height:100%; top:0; left:0; z-index:-1; opacity:0.18; background:url('${templateObj.fileData}') no-repeat center center; background-size:contain;"></div>`;
-        }
-    }
-
-    let printWindow = window.open('', '_printWindow', 'width=900,height=700');
-    printWindow.document.write(`
-        <html dir="${currentLang === 'ar' ? 'rtl' : 'ltr'}">
-        <head><title>${currentLang === 'ar' ? 'وصفة طبية' : 'Ordonnance'}</title>
-        <style>
-            body{font-family:Tahoma,sans-serif; padding:40px; color:#111; position:relative; min-height:90vh;}
-            .header-info{display:flex; justify-between; border-bottom:2px solid #0097b2; padding-bottom:15px; margin-bottom:25px;}
-            .content-box{margin-bottom:20px; font-size:14px; line-height:1.6;}
-            .footer-sign{margin-top:50px; text-align:${currentLang === 'ar' ? 'left' : 'right'}; font-weight:bold;}
-        </style>
-        </head>
-        <body onload="window.print();window.close()">
-            ${templateImageHtml}
-            <div class="header-info">
-                <div>
-                    <h2>${currentLang === 'ar' ? 'عيادات الأسرة الطبية' : 'Cabinet Médical Familial'}</h2>
-                    <p><b>${currentLang === 'ar' ? 'الطبيب المعالج:' : 'Médecin:'}</b> ${docName}</p>
-                </div>
-                <div>
-                    <p><b>${currentLang === 'ar' ? 'اسم المريض:' : 'Patient:'}</b> ${patName}</p>
-                    <p><b>${currentLang === 'ar' ? 'التاريخ:' : 'Date:'}</b> ${new Date().toLocaleDateString()}</p>
-                </div>
-            </div>
-            <div class="content-box">
-                <p><b>${currentLang === 'ar' ? 'التشخيص السريري:' : 'Diagnostic:'}</b><br/>${diag}</p>
-            </div>
-            <div class="content-box" style="margin-top: 30px;">
-                <p><b>${currentLang === 'ar' ? 'الـروشـيـتـة / الأدوية الموصوفة:' : 'Prescription Médicale:'}</b><br/><br/>${presc.replace(/\n/g, '<br/>')}</p>
-            </div>
-            <div class="footer-sign">
-                <p>${currentLang === 'ar' ? 'ختم وتوقيع الطبيب' : 'Cachet et Signature'}</p>
-            </div>
-        </body>
-        </html>
-    `);
-    printWindow.document.close();
 }
 
 function handleFileSelection(event) {
