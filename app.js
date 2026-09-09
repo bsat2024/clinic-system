@@ -123,7 +123,7 @@ function saveAndSync() {
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });
-        showToast("✓ تم الحفظ والمزامنة السحابية بنجاح");
+        showToast("✓ تم الحفظ والمزامنة الفورية بين الأطراف");
     } else {
         showToast("⚠️ يعمل بدون إنترنت: تم الحفظ محلياً على الجهاز بأمان");
     }
@@ -819,10 +819,9 @@ function addPatientSimpleModal(e) {
     document.getElementById('patInitFileLabel').innerText = "إرفاق تحليل أو صورة أشعة أولية (اختياري)";
 
     showToast("تم تسجيل المريض وملفه الطبي بنجاح!");
-    logAuditAction(`تسجيل مريض جديد مع ملف: ${name}`);
+    logAuditAction(`تسجيل مريض جديد: ${name}`);
 }
 
-// إضافة ملف إضافي لمريض مسجل مسبقاً
 function openAddExtraFileModal(patientName) {
     selectedPatientForExtraFile = patientName;
     document.getElementById('extraFilePatientName').value = patientName;

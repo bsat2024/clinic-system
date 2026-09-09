@@ -11,7 +11,6 @@ app.use(express.json());
 
 const DB_FILE = path.join(__dirname, 'clinic_db.json');
 
-// تحميل قاعدة البيانات من الملف الدائم أو إنشاء نسخة افتراضية
 let clinicDatabase = {
     staffList: [
         { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'] },
@@ -34,7 +33,7 @@ if (fs.existsSync(DB_FILE)) {
         const savedData = fs.readFileSync(DB_FILE, 'utf8');
         clinicDatabase = JSON.parse(savedData);
     } catch (e) {
-        console.log("خطأ في قراءة ملف قاعدة البيانات الدائمة، يتم استخدام النسخة الافتراضية.");
+        console.log("خطأ في قراءة قاعدة البيانات، استخدام النسخة الافتراضية.");
     }
 }
 
@@ -42,7 +41,7 @@ function saveDatabaseToFile() {
     try {
         fs.writeFileSync(DB_FILE, JSON.stringify(clinicDatabase, null, 2), 'utf8');
     } catch (e) {
-        console.log("تعذر حفظ قاعدة البيانات على الملف.");
+        console.log("تعذر حفظ قاعدة البيانات.");
     }
 }
 
@@ -74,36 +73,43 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-    // إرسال البيانات فور الاتصال
     socket.emit('sync-clinic-data', clinicDatabase);
 
-    // استقبال التحديثات ودمجها بذكاء وحفظها دائماً
+    // دمج ذكي وثنائي الاتجاه لأي بيانات قادمة من الاستقبال أو الإدارة أو الطبيب
     socket.on('update-clinic-data', (incomingData) => {
         if (incomingData) {
-            incomingData.patientsList.forEach(incPat => {
-                let exists = clinicDatabase.patientsList.find(p => (p.idCard && p.idCard === incPat.idCard) || p.name === incPat.name);
-                if (!exists) {
-                    clinicDatabase.patientsList.push(incPat);
-                } else {
-                    exists.visitsCount = Math.max(exists.visitsCount || 1, incPat.visitsCount || 1);
-                    if (incPat.medicalHistory) exists.medicalHistory = incPat.medicalHistory;
-                }
-            });
+            // دمج المرضى وملفاتهم بدقة
+            if (incomingData.patientsList) {
+                incomingData.patientsList.forEach(incPat => {
+                    let exists = clinicDatabase.patientsList.find(p => (p.idCard && p.idCard === incPat.idCard) || p.name === incPat.name);
+                    if (!exists) {
+                        clinicDatabase.patientsList.push(incPat);
+                    } else {
+                        exists.visitsCount = Math.max(exists.visitsCount || 1, incPat.visitsCount || 1);
+                        if (incPat.medicalHistory) exists.medicalHistory = incPat.medicalHistory;
+                    }
+                });
+            }
 
-            clinicDatabase.triageQueue = incomingData.triageQueue || clinicDatabase.triageQueue;
-            clinicDatabase.currentPatientInExam = incomingData.currentPatientInExam !== undefined ? incomingData.currentPatientInExam : clinicDatabase.currentPatientInExam;
+            if (incomingData.triageQueue) clinicDatabase.triageQueue = incomingData.triageQueue;
+            if (incomingData.currentPatientInExam !== undefined) clinicDatabase.currentPatientInExam = incomingData.currentPatientInExam;
             
-            incomingData.invoicesList.forEach(inv => {
-                if (!clinicDatabase.invoicesList.some(i => i.invNum === inv.invNum)) clinicDatabase.invoicesList.push(inv);
-            });
-            incomingData.appointments.forEach(app => {
-                if (!clinicDatabase.appointments.some(a => a.name === app.name && a.date === app.date)) clinicDatabase.appointments.push(app);
-            });
+            if (incomingData.invoicesList) {
+                incomingData.invoicesList.forEach(inv => {
+                    if (!clinicDatabase.invoicesList.some(i => i.invNum === inv.invNum)) clinicDatabase.invoicesList.push(inv);
+                });
+            }
 
-            clinicDatabase.auditLogs = incomingData.auditLogs || clinicDatabase.auditLogs;
+            if (incomingData.appointments) {
+                incomingData.appointments.forEach(app => {
+                    if (!clinicDatabase.appointments.some(a => a.name === app.name && a.date === app.date)) clinicDatabase.appointments.push(app);
+                });
+            }
 
-            saveDatabaseToFile(); // الحفظ الفوري على القرص الصلب
-            io.emit('sync-clinic-data', clinicDatabase); // بث التحديث لكافة الأجهزة
+            if (incomingData.auditLogs) clinicDatabase.auditLogs = incomingData.auditLogs;
+
+            saveDatabaseToFile();
+            io.emit('sync-clinic-data', clinicDatabase); // تحديث كافة الأطراف فوراً
         }
     });
 
@@ -114,5 +120,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`السيرفر يعمل بكفاءة على البورت: ${PORT}`);
+    console.log(`سيرفر العيادة يعمل بكفاءة على البورت: ${PORT}`);
 });
