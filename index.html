@@ -21,7 +21,7 @@
 
     <div id="globalVitalsAlertBanner" class="hidden bg-rose-600 text-white px-4 py-2 text-center text-xs font-black z-50 animate-pulse flex items-center justify-center gap-2">
         <i class="fa-solid fa-triangle-exclamation text-base"></i>
-        <span>تنبيه خطير: تم رصد تجاوزات حرجة في ضغط الدم أو نسبة السكري لدى المريض!</span>
+        <span id="txtAlertVitals">تنبيه خطير: تم رصد تجاوزات حرجة في ضغط الدم أو نسبة السكري لدى المريض!</span>
     </div>
 
     <div id="nurseNextPatientAlertModal" class="fixed inset-0 bg-black/70 hidden flex justify-center items-center z-50 backdrop-blur-md p-4 animate-pulse">
@@ -29,13 +29,13 @@
             <div class="w-20 h-20 bg-emerald-500 text-white rounded-3xl mx-auto flex items-center justify-center text-3xl shadow-lg">
                 <i class="fa-solid fa-user-nurse"></i>
             </div>
-            <h3 class="text-xs font-black uppercase tracking-widest text-emerald-600">تنبيه للممرضة: تجهيز المريض القادم في الدور</h3>
+            <h3 id="txtNurseAlertSub" class="text-xs font-black uppercase tracking-widest text-emerald-600">تنبيه للممرضة: تجهيز المريض القادم في الدور</h3>
             <h2 id="nurseAlertPatientName" class="text-2xl font-black text-gray-900">اسم المريض</h2>
             <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 text-xs font-bold text-gray-700">
-                <p>الطبيب المعالج قام باستدعائه: <span id="nurseAlertDoctorName" class="text-indigo-600 font-black text-sm">--</span></p>
-                <p class="text-emerald-700 mt-1">يرجى من الممرضة مرافقة وتجهيز المريض للفحص فوراً.</p>
+                <p><span id="txtDoctorCalled">الطبيب المعالج قام باستدعائه:</span> <span id="nurseAlertDoctorName" class="text-indigo-600 font-black text-sm">--</span></p>
+                <p id="txtNurseAction" class="text-emerald-700 mt-1">يرجى مرافقة وتجهيز المريض للفحص فوراً.</p>
             </div>
-            <button onclick="dismissNurseNextPatientAlert()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 rounded-2xl font-black text-sm shadow">
+            <button onclick="dismissNurseNextPatientAlert()" id="txtNurseBtnDismiss" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 rounded-2xl font-black text-sm shadow">
                 تم الاستلام وتجهيز المريض (إغلاق التنبيه)
             </button>
         </div>
@@ -114,6 +114,7 @@
             </header>
 
             <main class="space-y-6 flex-1">
+                <!-- لوحة القيادة -->
                 <div id="tab-dashboard" class="tab-content space-y-6">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex justify-between items-center transition hover:shadow-md">
@@ -136,41 +137,42 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-4">
-                            <h4 class="text-sm font-black text-gray-800">إحصائيات الإيرادات الحالية</h4>
+                            <h4 id="txtRevChartTitle" class="text-sm font-black text-gray-800">إحصائيات الإيرادات الحالية</h4>
                             <div class="h-64"><canvas id="revenueChart"></canvas></div>
                         </div>
                         <div class="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-4">
-                            <h4 class="text-sm font-black text-gray-800">توزيع الحالات المرضية بالعيادة</h4>
+                            <h4 id="txtCasesChartTitle" class="text-sm font-black text-gray-800">توزيع الحالات المرضية بالعيادة</h4>
                             <div class="h-64"><canvas id="casesChart"></canvas></div>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
                         <button onclick="switchTab('reception')" id="btnRec" class="bg-gradient-to-br from-[#0097b2] to-cyan-600 text-white p-7 rounded-[2.5rem] shadow-xl font-bold text-base transition active:scale-95 flex flex-col items-center justify-center gap-3 text-center">
-                            <i class="fa-solid fa-clipboard-user text-4xl bg-white/20 p-4 rounded-2xl"></i> <span>الاستقبال والترياج</span>
+                            <i class="fa-solid fa-clipboard-user text-4xl bg-white/20 p-4 rounded-2xl"></i> <span id="txtBtnRecSub">الاستقبال والترياج</span>
                         </button>
                         <button onclick="switchTab('examination')" id="btnExam" class="bg-gradient-to-br from-teal-600 to-emerald-600 text-white p-7 rounded-[2.5rem] shadow-xl font-bold text-base transition active:scale-95 flex flex-col items-center justify-center gap-3 text-center">
-                            <i class="fa-solid fa-stethoscope text-4xl bg-white/20 p-4 rounded-2xl"></i> <span>غرفة الفحص</span>
+                            <i class="fa-solid fa-stethoscope text-4xl bg-white/20 p-4 rounded-2xl"></i> <span id="txtBtnExamSub">غرفة الفحص</span>
                         </button>
                         <button onclick="openModal('invoice')" id="btnInv" class="bg-white hover:bg-amber-50 border-2 border-gray-100 p-7 rounded-[2.5rem] shadow-lg font-bold text-base transition active:scale-95 flex flex-col items-center justify-center gap-3 text-center text-gray-700">
-                            <i class="fa-solid fa-file-invoice-dollar text-4xl text-amber-500 bg-amber-50 p-4 rounded-2xl"></i> <span>إصدار فاتورة جديدة</span>
+                            <i class="fa-solid fa-file-invoice-dollar text-4xl text-amber-500 bg-amber-50 p-4 rounded-2xl"></i> <span id="txtBtnInvSub">إصدار فاتورة جديدة</span>
                         </button>
                     </div>
                 </div>
 
+                <!-- الاستقبال -->
                 <div id="tab-reception" class="tab-content hidden space-y-6">
                     <div class="bg-white rounded-[2.5rem] shadow-sm border p-6 md:p-8 space-y-6">
                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 gap-2">
                             <div>
                                 <h3 id="recTitle" class="text-xl font-black text-[#0097b2]">مكتب الاستقبال وتسجيل العلامات الحيوية</h3>
-                                <p class="text-xs text-gray-400 font-bold mt-1">البحث برقم بطاقة التعريف، الفلترة التلقائية، وقياس العلامات الحيوية</p>
+                                <p id="txtRecDesc" class="text-xs text-gray-400 font-bold mt-1">البحث برقم بطاقة التعريف، الفلترة التلقائية، وقياس العلامات الحيوية</p>
                             </div>
                             <div id="patientStatusBadge" class="hidden px-4 py-2 rounded-2xl text-xs font-black border transition-all shadow-sm"></div>
                         </div>
                         
                         <form onsubmit="handleTriageSubmit(event)" class="grid grid-cols-1 md:grid-cols-3 gap-5 bg-gray-50/80 p-6 rounded-[2rem] border">
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-1.5">رقم بطاقة التعريف الوطنية (ID Card)</label>
+                                <label id="lblIdCard" class="block text-xs font-bold text-gray-700 mb-1.5">رقم بطاقة التعريف الوطنية (ID Card)</label>
                                 <input type="text" id="triagePatientIDInput" required placeholder="أدخل رقم البطاقة..." oninput="checkPatientByIdCard(this.value)" class="w-full border rounded-2xl p-3.5 text-sm bg-white outline-none focus:ring-2 focus:ring-[#0097b2]">
                             </div>
                             <div>
@@ -178,7 +180,7 @@
                                 <input type="text" id="triagePatientNameInput" required placeholder="اسم المريض..." class="w-full border rounded-2xl p-3.5 text-sm bg-white outline-none focus:ring-2 focus:ring-[#0097b2]">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-1.5">رقم الهاتف</label>
+                                <label id="lblPhoneNum" class="block text-xs font-bold text-gray-700 mb-1.5">رقم الهاتف</label>
                                 <input type="text" id="triagePatientPhoneInput" placeholder="0500000000" class="w-full border rounded-2xl p-3.5 text-sm bg-white outline-none">
                             </div>
                             <div>
@@ -200,7 +202,7 @@
                             <div class="flex items-center pt-6">
                                 <label class="flex items-center gap-3 cursor-pointer bg-white border p-3 rounded-2xl w-full hover:bg-rose-50 transition shadow-sm">
                                     <input type="checkbox" id="triageEmergencyCheck" class="w-5 h-5 accent-rose-600">
-                                    <span class="text-xs font-black text-rose-600">حالة طارئة / أولوية مستعجلة</span>
+                                    <span id="txtEmergencyLabel" class="text-xs font-black text-rose-600">حالة طارئة / أولوية مستعجلة</span>
                                 </label>
                             </div>
                             <div class="md:col-span-3 pt-3">
@@ -211,24 +213,36 @@
                         <div class="space-y-4 overflow-x-auto">
                             <h4 id="lblQueueTitle" class="text-sm font-black text-gray-800">قائمة انتظار المرضى عند الطبيب</h4>
                             <table class="w-full text-right text-sm border rounded-2xl overflow-hidden shadow-sm min-w-[700px]">
-                                <thead><tr class="bg-gray-100 border-b text-xs text-gray-600"><th class="p-3">الدور</th><th class="p-3">المريض</th><th class="p-3">رقم البطاقة (ID)</th><th class="p-3">صفة الزيارة</th><th class="p-3">الطبيب</th><th class="p-3">المؤشرات</th><th class="p-3">الأسبقية</th><th class="p-3">إجراء</th></tr></thead>
+                                <thead>
+                                    <tr class="bg-gray-100 border-b text-xs text-gray-600">
+                                        <th id="thQueueNum" class="p-3">الدور</th>
+                                        <th id="thQueuePat" class="p-3">المريض</th>
+                                        <th id="thQueueIdCard" class="p-3">رقم البطاقة (ID)</th>
+                                        <th id="thQueueVisitType" class="p-3">صفة الزيارة</th>
+                                        <th id="thQueueDoc" class="p-3">الطبيب</th>
+                                        <th id="thQueueVitals" class="p-3">المؤشرات</th>
+                                        <th id="thQueuePriority" class="p-3">الأسبقية</th>
+                                        <th id="thQueueAction" class="p-3">إجراء</th>
+                                    </tr>
+                                </thead>
                                 <tbody id="triageQueueTbody" class="divide-y"></tbody>
                             </table>
                         </div>
                     </div>
                 </div>
 
+                <!-- غرفة الفحص -->
                 <div id="tab-examination" class="tab-content hidden space-y-6">
                     <div class="bg-white rounded-[2.5rem] shadow-sm border p-6 md:p-8 space-y-6">
                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 gap-2">
                             <div>
                                 <h3 id="examTitle" class="text-xl font-black text-[#0097b2]">غرفة الفحص</h3>
-                                <p class="text-xs text-gray-400 font-bold mt-1">تسجيل التشخيص والإجراءات الطبية وصرف الوصفات للمريض</p>
+                                <p id="txtExamDesc" class="text-xs text-gray-400 font-bold mt-1">تسجيل التشخيص والإجراءات الطبية وصرف الوصفات للمريض</p>
                             </div>
                             <div class="flex items-center gap-3">
-                                <span class="text-xs font-bold text-gray-500">اختر من الانتظار:</span>
+                                <span id="txtSelFromQueue" class="text-xs font-bold text-gray-500">اختر من الانتظار:</span>
                                 <select id="docQueueQuickSelect" onchange="doctorCallPatientFromDropdown(this.value)" class="border p-3 rounded-2xl text-xs bg-gray-50 outline-none font-bold text-[#0097b2] shadow-sm">
-                                    <option value="">-- اختر مريضاً للفحص --</option>
+                                    <option value="" id="optSelPatientPrompt">-- اختر مريضاً للفحص --</option>
                                 </select>
                             </div>
                         </div>
@@ -237,7 +251,7 @@
                             <div class="flex items-center gap-3">
                                 <i class="fa-solid fa-heart-pulse text-2xl animate-pulse"></i>
                                 <div>
-                                    <h5 class="text-xs font-black">تحليل الخطورة السريرية بالذكاء الاصطناعي</h5>
+                                    <h5 id="txtVitalsRiskTitle" class="text-xs font-black">تحليل المؤشرات الحيوية</h5>
                                     <p id="aiRiskText" class="text-[11px] font-medium">المؤشرات مستقرة ضمن المعدل الطبيعي</p>
                                 </div>
                             </div>
@@ -249,21 +263,21 @@
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-2xl bg-[#0097b2] text-white flex items-center justify-center text-lg shadow"><i class="fa-solid fa-folder-medical"></i></div>
                                     <div>
-                                        <h4 class="text-sm font-black text-gray-800">الملف الصحي التراكمي (الأشعة والتحاليل السابقة للمريض)</h4>
-                                        <p class="text-[11px] text-gray-500">يعرض كافة الفحوصات والتقارير الطبية للمريض</p>
+                                        <h4 id="txtCumulativeChartTitle" class="text-sm font-black text-gray-800">الملف الصحي التراكمي (الأشعة والتحاليل السابقة للمريض)</h4>
+                                        <p id="txtCumulativeChartSub" class="text-[11px] text-gray-500">يعرض كافة الفحوصات والتقارير الطبية للمريض</p>
                                     </div>
                                 </div>
-                                <button type="button" onclick="openAddMedicalRecordModal()" class="bg-[#0097b2] hover:bg-[#007b92] text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+                                <button type="button" onclick="openAddMedicalRecordModal()" id="btnInsertFileExam" class="bg-[#0097b2] hover:bg-[#007b92] text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
                                     <i class="fa-solid fa-plus"></i> <span>إدراج ملف</span>
                                 </button>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
-                                    <h5 class="text-xs font-black text-emerald-700 flex items-center gap-2 border-b pb-2"><i class="fa-solid fa-vial-virus text-sm"></i> <span>سجل التحاليل المخبرية</span></h5>
+                                    <h5 id="txtExamLabsHeader" class="text-xs font-black text-emerald-700 flex items-center gap-2 border-b pb-2"><i class="fa-solid fa-vial-virus text-sm"></i> <span>سجل التحاليل المخبرية</span></h5>
                                     <div id="examPastLabsContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
                                 </div>
                                 <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
-                                    <h5 class="text-xs font-black text-blue-700 flex items-center gap-2 border-b pb-2"><i class="fa-solid fa-x-ray text-sm"></i> <span>سجل الأشعة والتصوير</span></h5>
+                                    <h5 id="txtExamImagingHeader" class="text-xs font-black text-blue-700 flex items-center gap-2 border-b pb-2"><i class="fa-solid fa-x-ray text-sm"></i> <span>سجل الأشعة والتصوير</span></h5>
                                     <div id="examPastImagingContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
                                 </div>
                             </div>
@@ -273,18 +287,18 @@
                             <div class="flex items-center gap-3 border-b border-purple-100 pb-3">
                                 <div class="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center text-lg shadow"><i class="fa-solid fa-prescription-bottle-medical"></i></div>
                                 <div>
-                                    <h4 class="text-sm font-black text-purple-950">صرف الوصفات الطبية والأدوية (نموذج منظم)</h4>
-                                    <p class="text-[11px] text-gray-500">إدخال تفصيلي لاسم الدواء، الجرعات، التوقيت، ومدة العلاج</p>
+                                    <h4 id="txtPrescModelTitle" class="text-sm font-black text-purple-950">صرف الوصفات الطبية والأدوية (نموذج منظم)</h4>
+                                    <p id="txtPrescModelSub" class="text-[11px] text-gray-500">إدخال تفصيلي لاسم الدواء، الجرعات، التوقيت، ومدة العلاج</p>
                                 </div>
                             </div>
                             
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                                 <div>
-                                    <label class="block text-[11px] font-bold text-gray-700 mb-1">اسم الدواء</label>
+                                    <label id="lblDrugName" class="block text-[11px] font-bold text-gray-700 mb-1">اسم الدواء</label>
                                     <input type="text" id="prescDrugName" placeholder="مثال: Amoxicillin" class="w-full border p-2.5 rounded-xl text-xs bg-white outline-none focus:ring-2 focus:ring-purple-500">
                                 </div>
                                 <div>
-                                    <label class="block text-[11px] font-bold text-gray-700 mb-1">عدد الجرعات في اليوم</label>
+                                    <label id="lblDosesCount" class="block text-[11px] font-bold text-gray-700 mb-1">عدد الجرعات في اليوم</label>
                                     <select id="prescDoses" class="w-full border p-2.5 rounded-xl text-xs bg-white outline-none focus:ring-2 focus:ring-purple-500">
                                         <option value="مرة واحدة يومياً">مرة واحدة يومياً</option>
                                         <option value="مرتان يومياً (كل 12 ساعة)">مرتان يومياً (كل 12 ساعة)</option>
@@ -293,7 +307,7 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-[11px] font-bold text-gray-700 mb-1">وقت شرب الدواء</label>
+                                    <label id="lblDrugTime" class="block text-[11px] font-bold text-gray-700 mb-1">وقت شرب الدواء</label>
                                     <select id="prescTime" class="w-full border p-2.5 rounded-xl text-xs bg-white outline-none focus:ring-2 focus:ring-purple-500">
                                         <option value="بعد الأكل">بعد الأكل</option>
                                         <option value="قبل الأكل">قبل الأكل</option>
@@ -302,16 +316,16 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-[11px] font-bold text-gray-700 mb-1">مدة العلاج</label>
+                                    <label id="lblDuration" class="block text-[11px] font-bold text-gray-700 mb-1">مدة العلاج</label>
                                     <input type="text" id="prescDuration" placeholder="مثال: 7 أيام" class="w-full border p-2.5 rounded-xl text-xs bg-white outline-none focus:ring-2 focus:ring-purple-500">
                                 </div>
                             </div>
 
                             <div class="flex justify-between items-center pt-2">
-                                <button type="button" onclick="addDrugToTemplateList()" class="bg-white border border-purple-300 text-purple-700 hover:bg-purple-100 px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition">
+                                <button type="button" onclick="addDrugToTemplateList()" id="btnAddDrugRow" class="bg-white border border-purple-300 text-purple-700 hover:bg-purple-100 px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition">
                                     <i class="fa-solid fa-plus"></i> إضافة دواء للجدول
                                 </button>
-                                <button type="button" onclick="saveAndDispensePrescription()" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+                                <button type="button" onclick="saveAndDispensePrescription()" id="btnSavePrescFull" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
                                     <i class="fa-solid fa-check-double"></i> حفظ وصرف الوصفة كاملة
                                 </button>
                             </div>
@@ -320,15 +334,15 @@
                                 <table class="w-full text-right text-xs min-w-[500px]">
                                     <thead class="bg-purple-50 text-purple-900 border-b">
                                         <tr>
-                                            <th class="p-2.5">الدواء</th>
-                                            <th class="p-2.5">الجرعات</th>
-                                            <th class="p-2.5">الوقت</th>
-                                            <th class="p-2.5">المدة</th>
-                                            <th class="p-2.5 text-center">إجراء</th>
+                                            <th id="thDrug" class="p-2.5">الدواء</th>
+                                            <th id="thDoses" class="p-2.5">الجرعات</th>
+                                            <th id="thTime" class="p-2.5">الوقت</th>
+                                            <th id="thDuration" class="p-2.5">المدة</th>
+                                            <th id="thAction" class="p-2.5 text-center">إجراء</th>
                                         </tr>
                                     </thead>
                                     <tbody id="currentPrescriptionTableBody" class="divide-y">
-                                        <tr><td colspan="5" class="p-3 text-center text-gray-400">لم يتم إضافة أدوية للوصفة بعد</td></tr>
+                                        <tr><td colspan="5" id="txtNoDrugsAdded" class="p-3 text-center text-gray-400">لم يتم إضافة أدوية للوصفة بعد</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -339,30 +353,22 @@
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div class="md:col-span-2 space-y-4">
                                 <div class="bg-gray-50 p-5 rounded-[2rem] border space-y-3">
-                                    <div class="flex justify-between items-center">
-                                        <h4 class="text-xs font-black text-gray-700 uppercase flex items-center gap-2">
-                                            <span>التشخيص الطبي السريري (Diagnosis)</span>
-                                            <!-- زر / أيقونة جيمناي للذكاء الاصطناعي -->
-                                            <button type="button" onclick="openGeminiAnalysisModal()" title="فتح نافذة جيمناي لتحميل وتحليل ملف المريض" class="bg-gradient-to-r from-purple-700 to-indigo-600 hover:from-purple-800 hover:to-indigo-700 text-white px-3.5 py-1.5 rounded-xl text-[11px] font-black shadow transition flex items-center gap-1.5 animate-pulse">
-                                                <i class="fa-solid fa-brain"></i> <span>✨ تحليل الملف عبر Gemini AI</span>
-                                            </button>
-                                        </h4>
-                                    </div>
+                                    <h4 id="lblDiagnosisHeader" class="text-xs font-black text-gray-700 uppercase">التشخيص الطبي السريري (Diagnosis)</h4>
                                     <div class="flex flex-wrap gap-1.5 pt-1">
-                                        <span class="text-[10px] font-bold text-gray-400 self-center ml-1">أعراض سريعة:</span>
+                                        <span id="txtQuickSymptoms" class="text-[10px] font-bold text-gray-400 self-center ml-1">أعراض سريعة:</span>
                                         <button type="button" onclick="appendSymptomTag('حمى مرتفعة')" class="bg-white border hover:bg-purple-50 text-purple-700 px-2.5 py-1 rounded-xl text-[11px] font-bold shadow-sm">+ حمى</button>
                                         <button type="button" onclick="appendSymptomTag('سعال حاد')" class="bg-white border hover:bg-purple-50 text-purple-700 px-2.5 py-1 rounded-xl text-[11px] font-bold shadow-sm">+ سعال</button>
                                         <button type="button" onclick="appendSymptomTag('صداع نصفي')" class="bg-white border hover:bg-purple-50 text-purple-700 px-2.5 py-1 rounded-xl text-[11px] font-bold shadow-sm">+ صداع</button>
                                     </div>
-                                    <textarea id="examDiagnosis" rows="4" placeholder="اكتب التشخيص هنا أو انقر على (✨ تحليل الملف عبر Gemini AI) لقراءة التحاليل والأشعة والمرفقات تلقائياً..." class="w-full border p-3 rounded-2xl text-xs bg-white outline-none focus:ring-2 focus:ring-[#0097b2]"></textarea>
+                                    <textarea id="examDiagnosis" rows="4" placeholder="اكتب التشخيص هنا..." class="w-full border p-3 rounded-2xl text-xs bg-white outline-none focus:ring-2 focus:ring-[#0097b2]"></textarea>
                                 </div>
 
                                 <div class="bg-gray-50 p-5 rounded-[2rem] border space-y-2">
-                                    <h4 class="text-xs font-black text-gray-700 uppercase">الإجراءات الطبية (Procedure)</h4>
+                                    <h4 id="lblProcedureHeader" class="text-xs font-black text-gray-700 uppercase">الإجراءات الطبية (Procedure)</h4>
                                     <textarea id="examProcedure" rows="3" placeholder="الإجراءات المتخذة، تحاليل، سكانير..." class="w-full border p-3 rounded-2xl text-xs bg-white outline-none"></textarea>
                                 </div>
                                 <div class="flex flex-wrap justify-between items-center gap-3 pt-2">
-                                    <button onclick="printPrescriptionReport()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-2xl font-black text-sm shadow transition flex items-center gap-2">
+                                    <button onclick="printPrescriptionReport()" id="btnPrintPresc" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-2xl font-black text-sm shadow transition flex items-center gap-2">
                                         <i class="fa-solid fa-print"></i> طباعة الوصفة الطبية
                                     </button>
                                     <button onclick="openExamPricingModal()" class="bg-[#0097b2] hover:bg-[#007b92] text-white px-8 py-4 rounded-2xl font-black text-sm shadow-lg shadow-[#0097b2]/30 transition active:scale-95 flex items-center gap-2">
@@ -371,56 +377,61 @@
                                 </div>
                             </div>
                             <div class="bg-gray-50 p-6 rounded-[2rem] border space-y-4 text-center flex flex-col justify-center">
-                                <h4 class="text-xs font-black text-gray-400">المريض قيد الفحص حالياً</h4>
+                                <h4 id="txtPatientInExamLabel" class="text-xs font-black text-gray-400">المريض قيد الفحص حالياً</h4>
                                 <h3 id="examPatName" class="text-lg font-black text-[#0097b2] mt-1">لا يوجد مريض بالفحص</h3>
                                 <div class="grid grid-cols-2 gap-3 mt-4 text-xs font-bold text-gray-600">
-                                    <div class="bg-white p-3 rounded-2xl shadow-sm border">ضغط: <span id="examPatBP" class="text-emerald-600 font-black">--</span></div>
-                                    <div class="bg-white p-3 rounded-2xl shadow-sm border">سكر: <span id="examPatSugar" class="text-amber-600 font-black">--</span></div>
+                                    <div class="bg-white p-3 rounded-2xl shadow-sm border"><span id="txtExamCardBP">ضغط</span>: <span id="examPatBP" class="text-emerald-600 font-black">--</span></div>
+                                    <div class="bg-white p-3 rounded-2xl shadow-sm border"><span id="txtExamCardSugar">سكر</span>: <span id="examPatSugar" class="text-amber-600 font-black">--</span></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- المواعيد -->
                 <div id="tab-appointments" class="tab-content hidden space-y-6">
                     <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border space-y-6 overflow-x-auto">
-                        <div class="flex justify-between items-center border-b pb-4"><h2 id="apptsTabTitle" class="text-xl font-black">إدارة جدول المواعيد</h2><button onclick="openModal('appointment')" class="bg-blue-600 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow">موعد جديد</button></div>
-                        <table class="w-full text-right text-sm border rounded-2xl overflow-hidden shadow-sm min-w-[600px]"><thead><tr class="border-b bg-gray-50 text-xs"><th class="p-3">المريض</th><th class="p-3">الطبيب</th><th class="p-3">التاريخ</th><th class="p-3">الحالة</th><th class="p-3">إجراء</th></tr></thead><tbody id="fullAppointmentsTbody" class="divide-y"></tbody></table>
+                        <div class="flex justify-between items-center border-b pb-4"><h2 id="apptsTabTitle" class="text-xl font-black">إدارة جدول المواعيد</h2><button onclick="openModal('appointment')" id="btnNewAppt" class="bg-blue-600 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow">موعد جديد</button></div>
+                        <table class="w-full text-right text-sm border rounded-2xl overflow-hidden shadow-sm min-w-[600px]"><thead><tr class="border-b bg-gray-50 text-xs"><th id="thApptPat" class="p-3">المريض</th><th id="thApptDoc" class="p-3">الطبيب</th><th id="thApptDate" class="p-3">التاريخ</th><th id="thApptStatus" class="p-3">الحالة</th><th id="thApptAction" class="p-3">إجراء</th></tr></thead><tbody id="fullAppointmentsTbody" class="divide-y"></tbody></table>
                     </div>
                 </div>
 
+                <!-- المرضى -->
                 <div id="tab-patients" class="tab-content hidden space-y-6">
                     <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border space-y-6 overflow-x-auto">
-                        <div class="flex justify-between items-center border-b pb-4"><h3 id="patsTabTitle" class="text-xl font-black">المرضى المسجلين</h3><button onclick="openModal('patient')" class="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow">تسجيل مريض جديد</button></div>
+                        <div class="flex justify-between items-center border-b pb-4"><h3 id="patsTabTitle" class="text-xl font-black">المرضى المسجلين</h3><button onclick="openModal('patient')" id="btnNewPat" class="bg-emerald-600 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow">تسجيل مريض جديد</button></div>
                         <table class="w-full text-right text-sm border rounded-2xl overflow-hidden shadow-sm min-w-[700px]">
-                            <thead><tr class="border-b bg-gray-50 text-xs"><th class="p-3">الاسم</th><th class="p-3">رقم البطاقة (ID)</th><th class="p-3">الميلاد</th><th class="p-3">الهاتف</th><th class="p-3">الحالة</th><th class="p-3">الملف الصحي</th><th class="p-3">الإجراءات</th></tr></thead>
+                            <thead><tr class="border-b bg-gray-50 text-xs"><th id="thPatName" class="p-3">الاسم</th><th id="thPatIdCard" class="p-3">رقم البطاقة (ID)</th><th id="thPatDob" class="p-3">الميلاد</th><th id="thPatPhone" class="p-3">الهاتف</th><th id="thPatStatus" class="p-3">الحالة</th><th id="thPatHealthFile" class="p-3">الملف الصحي</th><th id="thPatActions" class="p-3">الإجراءات</th></tr></thead>
                             <tbody id="patientsTbody" class="divide-y"></tbody>
                         </table>
                     </div>
                 </div>
 
+                <!-- الأطباء -->
                 <div id="tab-doctors" class="tab-content hidden space-y-6">
                     <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border space-y-6 overflow-x-auto">
-                        <div class="flex justify-between items-center border-b pb-4"><h3 id="docsTabTitle" class="text-xl font-black">قائمة الأطباء</h3><button onclick="openModal('doctor')" class="bg-purple-600 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow">إضافة طبيب</button></div>
-                        <table class="w-full text-right text-sm border rounded-2xl overflow-hidden shadow-sm min-w-[600px]"><thead><tr class="border-b bg-gray-50 text-xs"><th class="p-3">الاسم</th><th class="p-3">التخصص</th><th class="p-3">الدوام</th><th class="p-3">الهاتف</th><th class="p-3">الإجراءات</th></tr></thead><tbody id="doctorsTbody" class="divide-y"></tbody></table>
+                        <div class="flex justify-between items-center border-b pb-4"><h3 id="docsTabTitle" class="text-xl font-black">قائمة الأطباء</h3><button onclick="openModal('doctor')" id="btnNewDoc" class="bg-purple-600 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow">إضافة طبيب</button></div>
+                        <table class="w-full text-right text-sm border rounded-2xl overflow-hidden shadow-sm min-w-[600px]"><thead><tr class="border-b bg-gray-50 text-xs"><th id="thDocName" class="p-3">الاسم</th><th id="thDocSpec" class="p-3">التخصص</th><th id="thDocShift" class="p-3">الدوام</th><th id="thDocPhone" class="p-3">الهاتف</th><th id="thDocAction" class="p-3">الإجراءات</th></tr></thead><tbody id="doctorsTbody" class="divide-y"></tbody></table>
                     </div>
                 </div>
 
+                <!-- الفواتير -->
                 <div id="tab-invoices" class="tab-content hidden space-y-6">
                     <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border space-y-6 overflow-x-auto">
-                        <div class="flex justify-between items-center border-b pb-4"><h3 id="invTabTitle" class="text-xl font-black">الفواتير والتحصيل</h3><button onclick="openModal('invoice')" class="bg-amber-600 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow">إصدار فاتورة</button></div>
-                        <table class="w-full text-right text-sm border rounded-2xl overflow-hidden shadow-sm min-w-[600px]"><thead><tr class="border-b bg-gray-50 text-xs"><th class="p-3">رقم الفاتورة</th><th class="p-3">المريض</th><th class="p-3">الخدمة</th><th class="p-3">المبلغ</th><th class="p-3">الدفع</th><th class="p-3">الإجراءات</th></tr></thead><tbody id="invoicesTbody" class="divide-y"></tbody></table>
+                        <div class="flex justify-between items-center border-b pb-4"><h3 id="invTabTitle" class="text-xl font-black">الفواتير والتحصيل</h3><button onclick="openModal('invoice')" id="btnNewInv" class="bg-amber-600 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow">إصدار فاتورة</button></div>
+                        <table class="w-full text-right text-sm border rounded-2xl overflow-hidden shadow-sm min-w-[600px]"><thead><tr class="border-b bg-gray-50 text-xs"><th id="thInvNum" class="p-3">رقم الفاتورة</th><th id="thInvPat" class="p-3">المريض</th><th id="thInvServ" class="p-3">الخدمة</th><th id="thInvAmount" class="p-3">المبلغ</th><th id="thInvPay" class="p-3">الدفع</th><th id="thInvAction" class="p-3">الإجراءات</th></tr></thead><tbody id="invoicesTbody" class="divide-y"></tbody></table>
                     </div>
                 </div>
 
+                <!-- التقارير -->
                 <div id="tab-reports" class="tab-content hidden space-y-6">
                     <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border space-y-6 overflow-x-auto">
-                        <h3 class="text-xl font-black border-b pb-4">التقارير وسجل النشاط والتدقيق الأمني (Audit Log)</h3>
+                        <h3 id="reportsTabTitle" class="text-xl font-black border-b pb-4">التقارير وسجل النشاط والتدقيق الأمني (Audit Log)</h3>
                         <div class="space-y-3">
-                            <h4 class="text-xs font-black text-gray-700">سجل عمليات النظام والحذف والتعديل للموظفين</h4>
+                            <h4 id="reportsSubTitle" class="text-xs font-black text-gray-700">سجل عمليات النظام والحذف والتعديل للموظفين</h4>
                             <table class="w-full text-right text-sm border rounded-2xl overflow-hidden shadow-sm min-w-[600px]">
                                 <thead class="bg-gray-100 text-xs text-gray-600">
-                                    <tr><th class="p-3">المستخدم</th><th class="p-3">الإجراء المنفذ</th><th class="p-3">التاريخ والوقت</th></tr>
+                                    <tr><th id="thLogUser" class="p-3">المستخدم</th><th id="thLogAction" class="p-3">الإجراء المنفذ</th><th id="thLogTime" class="p-3">التاريخ والوقت</th></tr>
                                 </thead>
                                 <tbody id="auditLogTbody" class="divide-y text-xs"></tbody>
                             </table>
@@ -428,80 +439,82 @@
                     </div>
                 </div>
 
+                <!-- الإعدادات -->
                 <div id="tab-settings" class="tab-content hidden space-y-6">
                     <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 space-y-6">
                         <div class="border-b pb-4 flex justify-between items-center">
                             <div>
                                 <h3 id="settingsTabTitle" class="text-xl font-black text-gray-800">إعدادات النظام والعيادة الشاملة</h3>
-                                <p class="text-xs text-gray-400 font-semibold mt-0.5">تخصيص الهوية، التسعير، الضرائب، ساعات العمل، وإدارة النسخ الاحتياطية</p>
+                                <p id="settingsSubTitle" class="text-xs text-gray-400 font-semibold mt-0.5">تخصيص الهوية، التسعير، الضرائب، ساعات العمل، وإدارة النسخ الاحتياطية</p>
                             </div>
-                            <button onclick="saveClinicSettings(event)" class="bg-[#0097b2] hover:bg-[#007b92] text-white px-6 py-3 rounded-2xl font-black text-xs shadow-md transition active:scale-95 flex items-center gap-2">
+                            <button onclick="saveClinicSettings(event)" id="btnSaveSettings" class="bg-[#0097b2] hover:bg-[#007b92] text-white px-6 py-3 rounded-2xl font-black text-xs shadow-md transition active:scale-95 flex items-center gap-2">
                                 <i class="fa-solid fa-floppy-disk"></i> <span>حفظ جميع التعديلات</span>
                             </button>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="bg-gray-50/80 p-6 rounded-[2rem] border border-gray-200 space-y-4">
-                                <h4 class="text-sm font-black text-[#0097b2] flex items-center gap-2"><i class="fa-solid fa-id-card"></i> <span>الملف التعريفي وهوية العيادة</span></h4>
+                                <h4 id="stgSec1Title" class="text-sm font-black text-[#0097b2] flex items-center gap-2"><i class="fa-solid fa-id-card"></i> <span>الملف التعريفي وهوية العيادة</span></h4>
                                 <div class="space-y-3 text-xs">
-                                    <div><label class="block font-bold text-gray-700 mb-1">اسم العيادة الرسمي</label><input type="text" id="stgClinicName" class="w-full border p-3 rounded-xl bg-white outline-none"></div>
-                                    <div><label class="block font-bold text-gray-700 mb-1">التخصص العام للمركز</label><input type="text" id="stgSpecialty" class="w-full border p-3 rounded-xl bg-white outline-none"></div>
-                                    <div><label class="block font-bold text-gray-700 mb-1">هاتف التواصل الرسمي</label><input type="text" id="stgPhone" class="w-full border p-3 rounded-xl bg-white outline-none"></div>
-                                    <div><label class="block font-bold text-gray-700 mb-1">العنوان والشارع</label><input type="text" id="stgAddress" class="w-full border p-3 rounded-xl bg-white outline-none"></div>
+                                    <div><label id="lblStgName" class="block font-bold text-gray-700 mb-1">اسم العيادة الرسمي</label><input type="text" id="stgClinicName" class="w-full border p-3 rounded-xl bg-white outline-none"></div>
+                                    <div><label id="lblStgSpec" class="block font-bold text-gray-700 mb-1">التخصص العام للمركز</label><input type="text" id="stgSpecialty" class="w-full border p-3 rounded-xl bg-white outline-none"></div>
+                                    <div><label id="lblStgPhone" class="block font-bold text-gray-700 mb-1">هاتف التواصل الرسمي</label><input type="text" id="stgPhone" class="w-full border p-3 rounded-xl bg-white outline-none"></div>
+                                    <div><label id="lblStgAddr" class="block font-bold text-gray-700 mb-1">العنوان والشارع</label><input type="text" id="stgAddress" class="w-full border p-3 rounded-xl bg-white outline-none"></div>
                                 </div>
                             </div>
 
                             <div class="bg-gray-50/80 p-6 rounded-[2rem] border border-gray-200 space-y-4">
-                                <h4 class="text-sm font-black text-[#0097b2] flex items-center gap-2"><i class="fa-solid fa-coins"></i> <span>التسعير والرسوم والضرائب</span></h4>
+                                <h4 id="stgSec2Title" class="text-sm font-black text-[#0097b2] flex items-center gap-2"><i class="fa-solid fa-coins"></i> <span>التسعير والرسوم والضرائب</span></h4>
                                 <div class="space-y-3 text-xs">
-                                    <div><label class="block font-bold text-gray-700 mb-1">كشفية الزيارة الافتراضية</label><input type="number" id="stgDefaultFee" class="w-full border p-3 rounded-xl bg-white outline-none font-bold"></div>
-                                    <div><label class="block font-bold text-gray-700 mb-1">نسبة ضريبة القيمة المضافة (%)</label><input type="number" id="stgTaxRate" value="0" class="w-full border p-3 rounded-xl bg-white outline-none font-bold"></div>
-                                    <div><label class="block font-bold text-gray-700 mb-1">العملة المعتمدة في النظام</label><select id="stgCurrency" class="w-full border p-3 rounded-xl bg-white outline-none font-bold"><option value="$">الدولار الأمريكي ($)</option><option value="د.ج">الدينار الجزائري (د.ج)</option></select></div>
+                                    <div><label id="lblStgFee" class="block font-bold text-gray-700 mb-1">كشفية الزيارة الافتراضية</label><input type="number" id="stgDefaultFee" class="w-full border p-3 rounded-xl bg-white outline-none font-bold"></div>
+                                    <div><label id="lblStgTax" class="block font-bold text-gray-700 mb-1">نسبة ضريبة القيمة المضافة (%)</label><input type="number" id="stgTaxRate" value="0" class="w-full border p-3 rounded-xl bg-white outline-none font-bold"></div>
+                                    <div><label id="lblStgCurr" class="block font-bold text-gray-700 mb-1">العملة المعتمدة في النظام</label><select id="stgCurrency" class="w-full border p-3 rounded-xl bg-white outline-none font-bold"><option value="$">الدولار الأمريكي ($)</option><option value="د.ج">الدينار الجزائري (د.ج)</option></select></div>
                                 </div>
                             </div>
 
                             <div class="bg-gray-50/80 p-6 rounded-[2rem] border border-gray-200 space-y-4">
-                                <h4 class="text-sm font-black text-[#0097b2] flex items-center gap-2"><i class="fa-solid fa-sliders"></i> <span>أوقات العمل والتنبيهات الذكية</span></h4>
+                                <h4 id="stgSec3Title" class="text-sm font-black text-[#0097b2] flex items-center gap-2"><i class="fa-solid fa-sliders"></i> <span>أوقات العمل والتنبيهات الذكية</span></h4>
                                 <div class="space-y-3 text-xs">
-                                    <div><label class="block font-bold text-gray-700 mb-1">ساعات الدوام اليومي للعيادة</label><input type="text" id="stgWorkingHours" value="08:00 AM - 04:00 PM" class="w-full border p-3 rounded-xl bg-white outline-none"></div>
-                                    <div><label class="block font-bold text-gray-700 mb-1">حجم ورق الطباعة الافتراضي</label><select id="stgPrintSize" class="w-full border p-3 rounded-xl bg-white outline-none"><option value="A4">A4 (القياسي للتقارير)</option></select></div>
-                                    <div><label class="block font-bold text-gray-700 mb-1">التنبيهات الصوتية للحالات الطارئة</label><select id="stgSoundAlerts" class="w-full border p-3 rounded-xl bg-white outline-none"><option value="on">مفعل</option></select></div>
+                                    <div><label id="lblStgHours" class="block font-bold text-gray-700 mb-1">ساعات الدوام اليومي للعيادة</label><input type="text" id="stgWorkingHours" value="08:00 AM - 04:00 PM" class="w-full border p-3 rounded-xl bg-white outline-none"></div>
+                                    <div><label id="lblStgPrint" class="block font-bold text-gray-700 mb-1">حجم ورق الطباعة الافتراضي</label><select id="stgPrintSize" class="w-full border p-3 rounded-xl bg-white outline-none"><option value="A4">A4 (القياسي للتقارير)</option></select></div>
+                                    <div><label id="lblStgAlerts" class="block font-bold text-gray-700 mb-1">التنبيهات الصوتية للحالات الطارئة</label><select id="stgSoundAlerts" class="w-full border p-3 rounded-xl bg-white outline-none"><option value="on">مفعل</option></select></div>
                                 </div>
                             </div>
 
                             <div class="bg-gray-50/80 p-6 rounded-[2rem] border border-gray-200 space-y-4">
-                                <h4 class="text-sm font-black text-[#0097b2] flex items-center gap-2"><i class="fa-solid fa-shield-halved"></i> <span>أمن البيانات والنسخ الاحتياطي</span></h4>
+                                <h4 id="stgSec4Title" class="text-sm font-black text-[#0097b2] flex items-center gap-2"><i class="fa-solid fa-shield-halved"></i> <span>أمن البيانات والنسخ الاحتياطي</span></h4>
                                 <div class="space-y-2.5 text-xs pt-1">
-                                    <button onclick="exportDatabaseBackup()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold transition shadow flex items-center justify-center gap-2"><i class="fa-solid fa-file-export"></i> <span>تصدير نسخة احتياطية كاملة (JSON)</span></button>
-                                    <label class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold transition shadow flex items-center justify-center gap-2 cursor-pointer"><i class="fa-solid fa-file-import"></i> <span>استرجاع نسخة احتياطية من ملف</span><input type="file" accept=".json" onchange="importDatabaseBackup(event)" class="hidden"></label>
-                                    <button onclick="resetClinicData()" class="w-full bg-rose-50 border-2 border-rose-200 hover:bg-rose-600 hover:text-white text-rose-600 py-3 rounded-xl font-black transition flex items-center justify-center gap-2 shadow-sm"><i class="fa-solid fa-triangle-exclamation"></i> <span>تصفير ومسح معطيات العيادة</span></button>
+                                    <button onclick="exportDatabaseBackup()" id="btnExportBackup" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold transition shadow flex items-center justify-center gap-2"><i class="fa-solid fa-file-export"></i> <span>تصدير نسخة احتياطية كاملة (JSON)</span></button>
+                                    <label id="lblImportBackup" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold transition shadow flex items-center justify-center gap-2 cursor-pointer"><i class="fa-solid fa-file-import"></i> <span>استرجاع نسخة احتياطية من ملف</span><input type="file" accept=".json" onchange="importDatabaseBackup(event)" class="hidden"></label>
+                                    <button onclick="resetClinicData()" id="btnResetData" class="w-full bg-rose-50 border-2 border-rose-200 hover:bg-rose-600 hover:text-white text-rose-600 py-3 rounded-xl font-black transition flex items-center justify-center gap-2 shadow-sm"><i class="fa-solid fa-triangle-exclamation"></i> <span>تصفير ومسح معطيات العيادة</span></button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- المستخدمين والصلاحيات -->
                 <div id="tab-staff" class="tab-content hidden space-y-6">
                     <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-8 space-y-6 overflow-x-auto">
                         <div class="flex justify-between items-center border-b pb-4">
                             <div>
                                 <h2 id="titlePermissions" class="text-2xl font-black text-gray-800">صلاحيات المستخدمين وإدارة الحسابات وكلمات المرور</h2>
-                                <p class="text-xs text-gray-400 font-bold mt-1">تعديل حسابات الموظفين، تغيير كلمات المرور، وتحديد صلاحيات الواجهات</p>
+                                <p id="txtStaffSub" class="text-xs text-gray-400 font-bold mt-1">تعديل حسابات الموظفين، تغيير كلمات المرور، وتحديد صلاحيات الواجهات</p>
                             </div>
-                            <button onclick="openModal('staff')" class="bg-[#0097b2] text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow flex items-center gap-2">
-                                <i class="fa-solid fa-user-plus"></i> <span id="btnNewStaff">إنشاء حساب موظف جديد</span>
+                            <button onclick="openModal('staff')" id="btnNewStaff" class="bg-[#0097b2] text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow flex items-center gap-2">
+                                <i class="fa-solid fa-user-plus"></i> <span>إنشاء حساب موظف جديد</span>
                             </button>
                         </div>
                         <div class="bg-gray-50 p-5 rounded-[2rem] border space-y-3">
-                            <h4 class="text-xs font-black text-gray-750">قائمة حسابات الموظفين والمستخدمين</h4>
+                            <h4 id="txtStaffTableTitle" class="text-xs font-black text-gray-750">قائمة حسابات الموظفين والمستخدمين</h4>
                             <table class="w-full text-right text-sm bg-white border rounded-2xl overflow-hidden shadow-sm min-w-[600px]">
                                 <thead>
                                     <tr class="bg-gray-100 border-b text-xs text-gray-650">
-                                        <th class="p-3">اسم الموظف</th>
-                                        <th class="p-3">اسم المستخدم</th>
-                                        <th class="p-3">كلمة المرور</th>
-                                        <th class="p-3">الدور الوظيفي</th>
-                                        <th class="p-3">الإجراءات</th>
+                                        <th id="thStaffName" class="p-3">اسم الموظف</th>
+                                        <th id="thStaffUser" class="p-3">اسم المستخدم</th>
+                                        <th id="thStaffPass" class="p-3">كلمة المرور</th>
+                                        <th id="thStaffRole" class="p-3">الدور الوظيفي</th>
+                                        <th id="thStaffAction" class="p-3">الإجراءات</th>
                                     </tr>
                                 </thead>
                                 <tbody id="staffManagementTableBody" class="divide-y"></tbody>
@@ -510,48 +523,6 @@
                     </div>
                 </div>
             </main>
-        </div>
-    </div>
-
-    <!-- نافذة محرك Gemini الذكي المنبثقة لتحليل ملفات المريض ونسخ التشخيص -->
-    <div id="modal-gemini-ai-assistant" class="fixed inset-0 bg-black/70 hidden flex justify-center items-center z-50 backdrop-blur-md p-4">
-        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden border-2 border-indigo-300 flex flex-col max-h-[90vh]">
-            <div class="bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 text-white px-8 py-5 flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-2xl font-black">
-                        <i class="fa-solid fa-brain"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-black text-base">محرك Google Gemini الطبي الذكي</h3>
-                        <p class="text-xs text-indigo-100 font-medium">ارفع أو حدد ملف المريض ليقوم الذكاء الاصطناعي بقراءته وتحليله</p>
-                    </div>
-                </div>
-                <button onclick="closeModal('gemini-ai-assistant')" class="text-white font-bold text-2xl hover:text-gray-200">&times;</button>
-            </div>
-            
-            <div class="p-6 overflow-y-auto space-y-5 text-xs font-medium flex-1 bg-indigo-50/30">
-                <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
-                    <label class="block font-black text-indigo-950 text-xs">📂 تحميل أو اختيار مستند الفحص الطبي (صورة أو PDF)</label>
-                    <input type="file" id="geminiPatientUploadInput" accept="image/*,.pdf" class="w-full border p-2.5 rounded-xl text-xs bg-gray-50 file:bg-indigo-600 file:text-white file:border-0 file:rounded-lg file:px-3 file:py-1 file:font-bold cursor-pointer" onchange="handleGeminiFileSelection(event)">
-                    <p id="geminiFileStatusLabel" class="text-[11px] text-gray-400">سيتم قراءة هذا المستند مع السجل التراكمي للمريض تلقائياً.</p>
-                </div>
-
-                <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
-                    <label class="block font-black text-indigo-950 text-xs">🧠 تحليل وقراءة محتوى المستندات بواسطة Gemini AI:</label>
-                    <div id="geminiAnalysisResultBox" class="p-4 bg-gray-50 rounded-xl border text-gray-800 leading-relaxed min-h-[150px] max-h-[250px] overflow-y-auto font-bold">
-                        أرفق المستند ثم اضغط على (بدء تحليل الملفات واستخراج التشخيص) بالأسفل.
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white px-6 py-4 border-t flex justify-between items-center gap-3">
-                <button type="button" onclick="runGeminiAIAnalysis()" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-5 py-3 rounded-xl font-black text-xs shadow transition flex items-center gap-2">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i> بدء تحليل الملفات واستخراج التشخيص
-                </button>
-                <button type="button" onclick="copyGeminiResultToDiagnosis()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-black text-xs shadow transition flex items-center gap-2">
-                    <i class="fa-solid fa-check-double"></i> نسخ إلى مكان التشخيص (Diagnosis)
-                </button>
-            </div>
         </div>
     </div>
 
@@ -611,13 +582,13 @@
             <div class="flex-1 bg-gray-50 p-6 overflow-y-auto space-y-5 text-xs font-medium">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="bg-white p-5 rounded-2xl border shadow-sm space-y-3">
-                        <h4 class="font-black text-emerald-800 text-sm border-b pb-2 flex items-center gap-2">
+                        <h4 id="txtChartLabsTitle" class="font-black text-emerald-800 text-sm border-b pb-2 flex items-center gap-2">
                             <i class="fa-solid fa-vial-virus"></i> سجل التحاليل المخبرية للمريض
                         </h4>
                         <div id="chartModalLabsContainer" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
                     </div>
                     <div class="bg-white p-5 rounded-2xl border shadow-sm space-y-3">
-                        <h4 class="font-black text-blue-800 text-sm border-b pb-2 flex items-center gap-2">
+                        <h4 id="txtChartImagingTitle" class="font-black text-blue-800 text-sm border-b pb-2 flex items-center gap-2">
                             <i class="fa-solid fa-x-ray"></i> سجل الأشعة والتقارير المصورة
                         </h4>
                         <div id="chartModalImagingContainer" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
@@ -626,7 +597,7 @@
             </div>
 
             <div class="bg-white px-6 py-4 border-t flex justify-end">
-                <button onclick="closeModal('patient-chart-viewer')" class="bg-[#0097b2] hover:bg-[#007b92] text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow">إغلاق الملف</button>
+                <button onclick="closeModal('patient-chart-viewer')" id="btnCloseChart" class="bg-[#0097b2] hover:bg-[#007b92] text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow">إغلاق الملف</button>
             </div>
         </div>
     </div>
@@ -636,26 +607,26 @@
         <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md p-8 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
                 <button onclick="closeModal('add-patient-file')" class="font-bold text-lg">&times;</button>
-                <h3 class="font-black text-sm text-[#0097b2]">إضافة تحليل أو أشعة لمريض مسجل</h3>
+                <h3 id="txtModalAddFileTitle" class="font-black text-sm text-[#0097b2]">إضافة تحليل أو أشعة لمريض مسجل</h3>
             </div>
             <form onsubmit="saveExtraPatientFile(event)" class="space-y-4 text-xs font-bold">
                 <div>
-                    <label class="block mb-1">المريض المعني</label>
+                    <label id="lblModalPatRef" class="block mb-1">المريض المعني</label>
                     <input type="text" id="extraFilePatientName" required readonly class="w-full border p-3 rounded-2xl bg-gray-100 text-gray-800 font-black">
                 </div>
                 <div>
-                    <label class="block mb-1">نوع الملف الطبي</label>
+                    <label id="lblModalFileType" class="block mb-1">نوع الملف الطبي</label>
                     <select id="extraFileType" required class="w-full border p-3 rounded-2xl bg-white">
                         <option value="lab">تحليل مخبري</option>
                         <option value="imaging">صورة أشعة / سكانير / صدى (Echo)</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block mb-1">عنوان الفحص</label>
+                    <label id="lblModalFileTitle" class="block mb-1">عنوان الفحص</label>
                     <input type="text" id="extraFileTitle" required placeholder="مثال: تحليل سكر تراكمي، أشعة رنين..." class="w-full border p-3 rounded-2xl bg-white">
                 </div>
                 <div>
-                    <label class="block mb-1 text-gray-800">اختر الملف (صورة أو PDF)</label>
+                    <label id="lblModalFileSelect" class="block mb-1 text-gray-800">اختر الملف (صورة أو PDF)</label>
                     <div class="border-2 border-dashed border-cyan-300 hover:border-[#0097b2] bg-cyan-50/40 rounded-2xl p-4 text-center cursor-pointer transition" onclick="document.getElementById('extraFileInput').click()">
                         <i class="fa-solid fa-folder-open text-2xl text-[#0097b2] mb-1"></i>
                         <p id="extraFilePreviewName" class="text-xs text-gray-600">اضغط لاختيار الملف الطبي</p>
@@ -663,17 +634,17 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block mb-1">ملاحظات الطبيب أو النتيجة</label>
+                    <label id="lblModalFileNotes" class="block mb-1">ملاحظات الطبيب أو النتيجة</label>
                     <textarea id="extraFileResult" rows="2" placeholder="سجل القيم أو ملاحظات التقرير..." class="w-full border p-3 rounded-2xl bg-white"></textarea>
                 </div>
-                <button type="submit" class="w-full bg-[#0097b2] text-white py-3.5 rounded-2xl font-bold shadow">حفظ وإرفاق الملف للمريض</button>
+                <button type="submit" id="btnModalSaveFile" class="w-full bg-[#0097b2] text-white py-3.5 rounded-2xl font-bold shadow">حفظ وإرفاق الملف للمريض</button>
             </form>
         </div>
     </div>
 
     <div id="modal-medical-record" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center z-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden p-8 space-y-4">
-            <div class="flex justify-between items-center border-b pb-3"><button onclick="closeModal('medical-record')" class="font-bold text-lg">&times;</button><h3 class="font-black text-sm">إدراج فحص طبي وأشعة / تحليل للمريض</h3></div>
+            <div class="flex justify-between items-center border-b pb-3"><button onclick="closeModal('medical-record')" class="font-bold text-lg">&times;</button><h3 id="txtMedRecModalTitle" class="font-black text-sm">إدراج فحص طبي وأشعة / تحليل للمريض</h3></div>
             <form onsubmit="savePatientMedicalRecordWithFile(event)" class="space-y-4 text-xs font-bold">
                 <div>
                     <label class="block mb-1">المريض المعني</label>
@@ -716,14 +687,14 @@
 
     <div id="examPricingModal" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center z-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 class="text-base font-black border-b pb-3">تسعير الفحص والخدمات والتحصيل</h3>
+            <h3 id="txtPricingModalTitle" class="text-base font-black border-b pb-3">تسعير الفحص والخدمات والتحصيل</h3>
             <form onsubmit="confirmFinishExamination(event)" class="space-y-3 text-xs font-bold">
-                <div><label class="block mb-1">رسوم الكشفية الأساسية ($)</label><input type="number" id="modalConsultFee" required value="30" class="w-full border p-3 rounded-2xl text-sm"></div>
-                <div><label class="block mb-1">رسوم تخطيط القلب (ECG)</label><input type="number" id="modalEcgFee" value="0" class="w-full border p-3 rounded-2xl text-sm"></div>
-                <div><label class="block mb-1">رسوم العلاج بالمحلول (IV)</label><input type="number" id="modalIvFee" value="0" class="w-full border p-3 rounded-2xl text-sm"></div>
+                <div><label id="lblConsultFee" class="block mb-1">رسوم الكشفية الأساسية ($)</label><input type="number" id="modalConsultFee" required value="30" class="w-full border p-3 rounded-2xl text-sm"></div>
+                <div><label id="lblEcgFee" class="block mb-1">رسوم تخطيط القلب (ECG)</label><input type="number" id="modalEcgFee" value="0" class="w-full border p-3 rounded-2xl text-sm"></div>
+                <div><label id="lblIvFee" class="block mb-1">رسوم العلاج بالمحلول (IV)</label><input type="number" id="modalIvFee" value="0" class="w-full border p-3 rounded-2xl text-sm"></div>
                 <div class="flex gap-3 pt-2">
-                    <button type="button" onclick="closeExamPricingModal()" class="flex-1 bg-gray-200 py-3 rounded-2xl font-bold text-xs">إلغاء</button>
-                    <button type="submit" class="flex-1 bg-[#0097b2] text-white py-3 rounded-2xl font-bold text-xs shadow">تأكيد وتخريج المريض</button>
+                    <button type="button" onclick="closeExamPricingModal()" id="btnCancelPricing" class="flex-1 bg-gray-200 py-3 rounded-2xl font-bold text-xs">إلغاء</button>
+                    <button type="submit" id="btnConfirmPricing" class="flex-1 bg-[#0097b2] text-white py-3 rounded-2xl font-bold text-xs shadow">تأكيد وتخريج المريض</button>
                 </div>
             </form>
         </div>
@@ -731,18 +702,18 @@
 
     <div id="modal-invoice" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center z-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg p-8 space-y-4">
-            <div class="flex justify-between items-center border-b pb-3"><button onclick="closeModal('invoice')" class="font-bold text-xl">&times;</button><h3>اصدار فاتورة</h3></div>
+            <div class="flex justify-between items-center border-b pb-3"><button onclick="closeModal('invoice')" class="font-bold text-xl">&times;</button><h3 id="txtInvModalTitle">اصدار فاتورة</h3></div>
             <form onsubmit="saveInvoice(event)" class="space-y-4">
                 <input type="text" id="invPatientSelect" placeholder="اسم المريض" class="w-full border p-3 rounded-2xl text-sm">
                 <input type="number" id="invConsultFee" value="30" class="w-full border p-3 rounded-2xl text-sm" placeholder="المبلغ">
-                <button type="submit" class="w-full bg-[#0097b2] text-white py-3.5 rounded-2xl font-bold shadow">إصدار الفاتورة</button>
+                <button type="submit" id="btnInvSubmit" class="w-full bg-[#0097b2] text-white py-3.5 rounded-2xl font-bold shadow">إصدار الفاتورة</button>
             </form>
         </div>
     </div>
 
     <div id="modal-simple" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center z-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md p-8">
-            <div class="flex justify-between items-center mb-4 border-b pb-3"><button onclick="closeModal('simple')" class="font-bold text-lg">&times;</button><h3 class="font-black text-sm">إضافة</h3></div>
+            <div class="flex justify-between items-center mb-4 border-b pb-3"><button onclick="closeModal('simple')" class="font-bold text-lg">&times;</button><h3 id="txtSimpleModalTitle" class="font-black text-sm">إضافة</h3></div>
             
             <form id="form-newPatient" onsubmit="addPatientSimpleModal(event)" class="space-y-3 hidden simple-form">
                 <input type="text" id="modalPatID" required placeholder="رقم بطاقة التعريف الوطنية (ID)" class="w-full border p-3 rounded-2xl text-sm">
@@ -758,32 +729,32 @@
 
                 <div class="grid grid-cols-2 gap-2">
                     <select id="modalPatInitFileType" class="border p-2.5 rounded-xl text-xs bg-white">
-                        <option value="lab">تحليل مخبري</option>
-                        <option value="imaging">أشعة / سكانير</option>
+                        <option value="lab" id="optLabType">تحليل مخبري</option>
+                        <option value="imaging" id="optImgType">أشعة / سكانير</option>
                     </select>
                     <input type="text" id="modalPatInitFileTitle" placeholder="عنوان الفحص (مثلاً: تحليل دم)" class="border p-2.5 rounded-xl text-xs bg-white">
                 </div>
 
-                <button type="submit" class="w-full bg-[#0097b2] text-white py-3 rounded-2xl font-bold shadow">حفظ المريض والملف بالنظام</button>
+                <button type="submit" id="btnSaveNewPat" class="w-full bg-[#0097b2] text-white py-3 rounded-2xl font-bold shadow">حفظ المريض والملف بالنظام</button>
             </form>
 
             <form id="form-newAppt" onsubmit="addAppointment(event)" class="space-y-4 hidden simple-form">
                 <input type="text" id="aPat" required placeholder="اسم المريض" class="w-full border p-3 rounded-2xl text-sm">
                 <input type="text" id="aDoc" required placeholder="الطبيب المعالج" class="w-full border p-3 rounded-2xl text-sm">
                 <input type="datetime-local" id="aDate" required class="w-full border p-3 rounded-2xl text-sm">
-                <button type="submit" class="w-full bg-[#0097b2] text-white py-3 rounded-2xl font-bold shadow">حفظ الموعد</button>
+                <button type="submit" id="btnSaveAppt" class="w-full bg-[#0097b2] text-white py-3 rounded-2xl font-bold shadow">حفظ الموعد</button>
             </form>
             <form id="form-newStaff" onsubmit="addStaff(event)" class="space-y-4 hidden simple-form">
                 <input type="text" id="sName" required placeholder="الاسم" class="w-full border p-3 rounded-2xl text-sm">
                 <input type="text" id="sUser" required placeholder="المستخدم" class="w-full border p-3 rounded-2xl text-sm">
                 <input type="password" id="sPass" required placeholder="كلمة المرور" class="w-full border p-3 rounded-2xl text-sm">
                 <select id="sRole" class="w-full border p-3 rounded-2xl text-sm"><option value="admin">مدير</option><option value="doctor">طبيب</option><option value="receptionist">استقبال</option></select>
-                <button type="submit" class="w-full bg-[#0097b2] text-white py-3 rounded-2xl font-bold shadow">حفظ المستخدم</button>
+                <button type="submit" id="btnSaveStaff" class="w-full bg-[#0097b2] text-white py-3 rounded-2xl font-bold shadow">حفظ المستخدم</button>
             </form>
             <form id="form-newDoctor" onsubmit="addDoctor(event)" class="space-y-4 hidden simple-form">
                 <input type="text" id="dName" required placeholder="اسم الطبيب" class="w-full border p-3 rounded-2xl text-sm">
                 <input type="text" id="dSpec" required placeholder="التخصص" class="w-full border p-3 rounded-2xl text-sm">
-                <button type="submit" class="w-full bg-[#0097b2] text-white py-3 rounded-2xl font-bold shadow">حفظ الطبيب</button>
+                <button type="submit" id="btnSaveDoc" class="w-full bg-[#0097b2] text-white py-3 rounded-2xl font-bold shadow">حفظ الطبيب</button>
             </form>
         </div>
     </div>
