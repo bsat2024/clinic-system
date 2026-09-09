@@ -45,7 +45,7 @@ try {
             indicator.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span> متزامن (Live Cloud)`;
             indicator.className = "text-[11px] font-black px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-2 shadow-sm";
         }
-        socket.emit('update-clinic-data', db);
+        socket.emit('update-clinic-data', { ...db, currentPatientInExam });
     });
 
     socket.on('disconnect', () => {
@@ -74,7 +74,6 @@ try {
                 if (!db.appointments.some(a => a.name === app.name && a.date === app.date)) db.appointments.push(app);
             });
 
-            // مزامنة حالة المريض الحالي بالفحص عبر الأجهزة لمنع تضارب الشاشات
             if (serverData.currentPatientInExam !== undefined) {
                 currentPatientInExam = serverData.currentPatientInExam;
                 if (currentPatientInExam) {
@@ -101,6 +100,10 @@ async function fetchServerDataInitial() {
             let serverData = await res.json();
             if (serverData && serverData.patientsList) {
                 db = serverData;
+                if (serverData.currentPatientInExam !== undefined) {
+                    currentPatientInExam = serverData.currentPatientInExam;
+                    if (currentPatientInExam) localStorage.setItem('currentPatientInExam', JSON.stringify(currentPatientInExam));
+                }
                 localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
                 refreshAllUIs();
             }
@@ -112,6 +115,11 @@ async function fetchServerDataInitial() {
 
 function saveAndSync() {
     localStorage.setItem('clinicOfflineDB', JSON.stringify(db));
+    if (currentPatientInExam) {
+        localStorage.setItem('currentPatientInExam', JSON.stringify(currentPatientInExam));
+    } else {
+        localStorage.removeItem('currentPatientInExam');
+    }
     
     if (socket && socket.connected) {
         socket.emit('update-clinic-data', { ...db, currentPatientInExam });

@@ -3,11 +3,15 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+const DB_FILE = path.join(__dirname, 'clinic_db.json');
+
+// تحميل قاعدة البيانات من الملف الدائم أو إنشاء نسخة افتراضية
 let clinicDatabase = {
     staffList: [
         { name: "Yazan Hamaideh", username: "admin", password: "123", role: "admin", allowedTabs: ['dashboard', 'reception', 'examination', 'appointments', 'patients', 'doctors', 'prescriptions', 'invoices', 'reports', 'staff', 'settings'] },
@@ -21,8 +25,26 @@ let clinicDatabase = {
     invoicesList: [],
     triageQueue: [],
     prescriptionsList: [],
-    auditLogs: []
+    auditLogs: [],
+    currentPatientInExam: null
 };
+
+if (fs.existsSync(DB_FILE)) {
+    try {
+        const savedData = fs.readFileSync(DB_FILE, 'utf8');
+        clinicDatabase = JSON.parse(savedData);
+    } catch (e) {
+        console.log("خطأ في قراءة ملف قاعدة البيانات الدائمة، يتم استخدام النسخة الافتراضية.");
+    }
+}
+
+function saveDatabaseToFile() {
+    try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(clinicDatabase, null, 2), 'utf8');
+    } catch (e) {
+        console.log("تعذر حفظ قاعدة البيانات على الملف.");
+    }
+}
 
 app.get('/api/data', (req, res) => {
     res.json(clinicDatabase);
@@ -52,45 +74,36 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-    // إرسال البيانات الحالية فور اتصال أي جهاز
+    // إرسال البيانات فور الاتصال
     socket.emit('sync-clinic-data', clinicDatabase);
 
-    // استقبال البيانات من أي جهاز ودمجها بذكاء لضمان عدم ضياع أي تعديل
+    // استقبال التحديثات ودمجها بذكاء وحفظها دائماً
     socket.on('update-clinic-data', (incomingData) => {
         if (incomingData) {
-            // دمج قائمة المرضى (منع التكرار بناءً على رقم البطاقة أو الاسم)
             incomingData.patientsList.forEach(incPat => {
                 let exists = clinicDatabase.patientsList.find(p => (p.idCard && p.idCard === incPat.idCard) || p.name === incPat.name);
                 if (!exists) {
                     clinicDatabase.patientsList.push(incPat);
                 } else {
-                    // تحديث الملفات الطبية أو الزيارات إذا كانت أحدث
                     exists.visitsCount = Math.max(exists.visitsCount || 1, incPat.visitsCount || 1);
-                    if (incPat.medicalHistory) {
-                        exists.medicalHistory = incPat.medicalHistory;
-                    }
+                    if (incPat.medicalHistory) exists.medicalHistory = incPat.medicalHistory;
                 }
             });
 
-            // دمج قائمة الانتظار
             clinicDatabase.triageQueue = incomingData.triageQueue || clinicDatabase.triageQueue;
-            // دمج الفواتير
+            clinicDatabase.currentPatientInExam = incomingData.currentPatientInExam !== undefined ? incomingData.currentPatientInExam : clinicDatabase.currentPatientInExam;
+            
             incomingData.invoicesList.forEach(inv => {
-                if (!clinicDatabase.invoicesList.some(i => i.invNum === inv.invNum)) {
-                    clinicDatabase.invoicesList.push(inv);
-                }
+                if (!clinicDatabase.invoicesList.some(i => i.invNum === inv.invNum)) clinicDatabase.invoicesList.push(inv);
             });
-            // دمج المواعيد
             incomingData.appointments.forEach(app => {
-                if (!clinicDatabase.appointments.some(a => a.name === app.name && a.date === app.date)) {
-                    clinicDatabase.appointments.push(app);
-                }
+                if (!clinicDatabase.appointments.some(a => a.name === app.name && a.date === app.date)) clinicDatabase.appointments.push(app);
             });
 
             clinicDatabase.auditLogs = incomingData.auditLogs || clinicDatabase.auditLogs;
 
-            // بث النسخة المحدثة لكافة الأجهزة المتصلة لحظياً
-            io.emit('sync-clinic-data', clinicDatabase);
+            saveDatabaseToFile(); // الحفظ الفوري على القرص الصلب
+            io.emit('sync-clinic-data', clinicDatabase); // بث التحديث لكافة الأجهزة
         }
     });
 
